@@ -137,6 +137,7 @@ export function resolveLanTrust(bindHost: string, extra: readonly string[]): Web
     ? Object.values(networkInterfaces()).flat()
       .filter((iface): iface is NonNullable<typeof iface> => iface !== undefined && iface.family === 'IPv4' && !iface.internal)
       .map(iface => iface.address)
+      .sort((a, b) => (a.startsWith('192.168.') ? -1 : b.startsWith('192.168.') ? 1 : 0))
     : []
   return { lanAddresses, trustedHosts: [...lanAddresses, ...extra] }
 }
