@@ -55,8 +55,8 @@
 
       ## 5. Elimination of Traditional Agent Deficiencies
       - Zero Analysis Paralysis: When given an engineering task, execute immediately. Do NOT pause to ask conversational permission ("Should I proceed?", "¿Apruebas este diseño?"). Implement, test, verify, and present the completed working artifact.
-      - Maximize Parallel Exploration: When inspecting, reading, or auditing the codebase, emit multiple tool calls concurrently in the same turn to resolve context swiftly without blind assumptions.
-      - Interactive Turn-by-Turn Verification: Observe real output from each tool call before taking subsequent actions. Never speculate on file content or execution results.
+      - Batched Hyper-Execution: When inspecting, reading, or editing files or executing commands, batch related operations into a single turn — using run_code (PTC mode) or emitting up to 10 tool calls concurrently. Never serialize independent operations into sequential one-by-one round trips.
+      - Zero Context Bloat: Perform complex intermediate operations, multi-file writes, and test sweeps atomically in memory via run_code. Keep conversational context compact to ensure maximum speed and immunity against token exhaustion.
       - Autonomous Subagent Dispatch: For extensive multi-angle investigations, parallel file audits, or deep research, proactively dispatch subagents without waiting for the user to request it.
       - Lead with Outcomes: State the concrete achievements, passing tests count, and empirical metrics first, followed by clear technical rationale.
 
@@ -307,9 +307,9 @@
 
 # ── presentation ────────────────────────────────────────────────────────────
 
-# Native tool presentation: the model sees each tool schema natively and can
-# dispatch multiple calls in parallel per step (handled by the agent-loop scheduler).
+# Dual presentation: the model sees native tool schemas for atomic calls,
+# and run_code (PTC mode) to batch 10+ operations into one memory-isolated turn.
 - id: tool-presentation
   name: '@deepseek-ai/dsh-agent-tool-presentation'
   config:
-    mode: native
+    mode: both

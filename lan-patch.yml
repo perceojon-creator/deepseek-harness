@@ -142,5 +142,5 @@
         transport: streamable-http
         url: 'http://127.0.0.1:22346/mcp'
         headers:
-          Authorization: !!js 'Bearer ' + (process.env.TERMINAL_MCP_TOKEN ?? '')
+          Authorization: !!js "'Bearer ' + (process.env.TERMINAL_MCP_TOKEN ?? '')"
         failOnStartupError: false
