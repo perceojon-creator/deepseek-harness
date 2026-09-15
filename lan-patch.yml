@@ -1,7 +1,146 @@
 - id: webserver
+  inject:
+    - webStartup
   config:
-    host: 0.0.0.0
-    port: 3080
+    host: !!js ctx.webStartup.host ?? '0.0.0.0'
+    port: !!js ctx.webStartup.port ?? 3080
     compression: gzip
     compressionLevel: 1
     compressionThresholdBytes: 1024
+
+- insert:
+    # 1. Memoria de Código y Grafo de Conocimiento (AST, llamadas, radio de impacto)
+    - id: mcp-codebase-memory
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: codebase
+        transport: stdio
+        command: C:\Users\Admin\.local\bin\codebase-memory-mcp.exe
+
+    # 2. Búsqueda Web Privada DuckDuckGo (sin API key requerida)
+    - id: mcp-duckduckgo
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: ddg
+        transport: stdio
+        command: C:\Users\Admin\AppData\Roaming\npm\node_modules\mcp-duckduckgo\bin\duckduckgo-mcp.exe
+
+    # 3. Búsqueda Web Semántica Exa
+    - id: mcp-exa
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: exa
+        transport: stdio
+        command: cmd.exe
+        args:
+          - /c
+          - npx
+          - -y
+          - exa-mcp
+        env:
+          EXA_API_KEY: !!js process.env.EXA_API_KEY ?? ''
+
+    # 4. Motor de Búsqueda Agéntica Tavily
+    - id: mcp-tavily
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: tavily
+        transport: stdio
+        command: cmd.exe
+        args:
+          - /c
+          - npx
+          - -y
+          - tavily-mcp
+        env:
+          TAVILY_API_KEY: !!js process.env.TAVILY_API_KEY ?? ''
+
+    # 5. Navegación y Automatización con Chrome Real (Playwright)
+    - id: mcp-playwright
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: playwright
+        transport: stdio
+        command: cmd.exe
+        args:
+          - /c
+          - npx
+          - -y
+          - '@playwright/mcp@latest'
+          - '--caps=vision,pdf,network'
+          - '--user-data-dir=C:\Users\Admin\playwright-chrome-profile'
+          - '--executable-path=C:\Program Files\Google\Chrome\Application\chrome.exe'
+
+    # 6. Control de Ratón, Teclado y Pantalla (Computer Use)
+    - id: mcp-compumouse
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: compumouse
+        transport: stdio
+        command: cmd.exe
+        args:
+          - /c
+          - npx
+          - -y
+          - computer-use-mcp@latest
+
+    # 7. Acceso y Sandbox de Sistema de Archivos
+    - id: mcp-filesystem
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: filesystem
+        transport: stdio
+        command: node
+        args:
+          - C:\Users\Admin\Desktop\deepseek-harness\node_modules\.pnpm\@modelcontextprotocol+server-filesystem@2026.7.10_zod@4.4.3\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js
+          - C:\Users\Admin\.agent-os-data\mcp-workspace
+
+    # 8. Gestor de Paquetes de Windows (winget)
+    - id: mcp-winget
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: winget
+        transport: stdio
+        command: C:\Users\Admin\AppData\Local\Microsoft\WindowsApps\WindowsPackageManagerMCPServer.exe
+
+    # 9. Bóveda Personal Obsidian (DESACTIVADO POR TIEMPO DE ARRANQUE)
+    # - id: mcp-obsidian
+    #   name: '@deepseek-ai/dsh-mcp-client'
+    #   config:
+    #     serverName: obsidian
+    #     transport: streamable-http
+    #     url: 'https://127.0.0.1:27124/mcp/'
+    #     headers:
+    #       Authorization: !!js 'Bearer ' + (process.env.OBSIDIAN_MCP_TOKEN ?? '')
+    #     failOnStartupError: false
+
+    # 10. Plataforma Cuantitativa SQX (DESACTIVADO POR TIEMPO DE ARRANQUE)
+    # - id: mcp-sqx
+    #   name: '@deepseek-ai/dsh-mcp-client'
+    #   config:
+    #     serverName: sqx
+    #     transport: streamable-http
+    #     url: 'http://localhost:8080/mcp'
+    #     failOnStartupError: false
+
+    # 11. MetaEditor Bridge (DESACTIVADO POR TIEMPO DE ARRANQUE)
+    # - id: mcp-metaeditor
+    #   name: '@deepseek-ai/dsh-mcp-client'
+    #   config:
+    #     serverName: metaeditor
+    #     transport: streamable-http
+    #     url: 'http://127.0.0.1:22345/mcp'
+    #     headers:
+    #       Authorization: !!js 'Bearer ' + (process.env.METAEDITOR_MCP_TOKEN ?? '')
+    #     failOnStartupError: false
+
+    # 12. Terminal Remoto Interactivo (HTTP - puerto 22346)
+    - id: mcp-terminal
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: terminal
+        transport: streamable-http
+        url: 'http://127.0.0.1:22346/mcp'
+        headers:
+          Authorization: !!js 'Bearer ' + (process.env.TERMINAL_MCP_TOKEN ?? '')
+        failOnStartupError: false

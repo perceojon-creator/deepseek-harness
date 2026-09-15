@@ -109,4 +109,29 @@ describe('the shipped preset root', () => {
       expect(toolWeb.config.fetch, id).toBe(true)
     }
   })
+
+  it('configures Codex Apex for native feedback loops with expanded tool context', async () => {
+    const source = await readFile(join(SHIPPED_PRESET_ROOT, 'codex-apex', 'agent.cordis.yml'), 'utf8')
+    const entries: unknown = yaml.load(source, { schema: entryListSchema })
+    if (!Array.isArray(entries)) throw new TypeError('codex-apex preset must contain a Cordis entry list')
+
+    const findEntry = (list: unknown[], id: string): Record<string, unknown> | undefined =>
+      list.find((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && (entry as Record<string, unknown>).id === id)
+
+    const persona = findEntry(entries, 'persona')
+    const presentation = findEntry(entries, 'tool-presentation')
+    const compaction = findEntry(entries, 'compaction')
+    const compactionConfig = Array.isArray(compaction?.config) ? compaction.config : []
+    const pruner = findEntry(compactionConfig, 'tool-result-pruner')
+
+    expect((presentation?.config as Record<string, unknown> | undefined)?.mode).toBe('native')
+    expect(pruner?.config).toEqual({
+      thresholdChars: 65_536,
+      headChars: 32_768,
+      tailChars: 16_384,
+    })
+    const personaConfig = persona?.config as Record<string, unknown> | undefined
+    expect(personaConfig?.text).not.toContain('run_code')
+    expect(personaConfig?.text).not.toContain('<5,000 tokens')
+  })
 })

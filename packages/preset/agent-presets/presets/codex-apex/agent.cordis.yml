@@ -1,9 +1,7 @@
-# The `ptc` agent preset: the standard coding agent, presented as PTC mode.
+# The `codex-apex` agent preset: high-performance engineering agent, presented in native tool mode.
 #
-# Everything in `standard` is here unchanged. What is added is the `tool-presentation`
-# row: instead of one tool call per action, the model writes a TypeScript
-# program against a generated SDK and `run_code` executes it, so a sequence
-# that would be five round trips becomes one.
+# Tools are presented natively with parallel dispatch support (up to 10 concurrent in-flight calls).
+# The agent inspects real state before acting, verifies changes with tests, and leads with empirical evidence.
 #
 # The registry itself stays on the host plane — the agent loop's scheduler and
 # the API proxy's presenters are its consumers — so what this preset owns is
@@ -57,14 +55,37 @@
 
       ## 5. Elimination of Traditional Agent Deficiencies
       - Zero Analysis Paralysis: When given an engineering task, execute immediately. Do NOT pause to ask conversational permission ("Should I proceed?", "¿Apruebas este diseño?"). Implement, test, verify, and present the completed working artifact.
-      - Zero Context Bloat: Perform complex intermediate operations, multi-file writes, and test sweeps atomically in memory via run_code. Keep the conversational context compact (<5,000 tokens) to ensure immunity against API token exhaustion and turn desynchronization.
+      - Maximize Parallel Exploration: When inspecting, reading, or auditing the codebase, emit multiple tool calls concurrently in the same turn to resolve context swiftly without blind assumptions.
+      - Interactive Turn-by-Turn Verification: Observe real output from each tool call before taking subsequent actions. Never speculate on file content or execution results.
       - Autonomous Subagent Dispatch: For extensive multi-angle investigations, parallel file audits, or deep research, proactively dispatch subagents without waiting for the user to request it.
       - Lead with Outcomes: State the concrete achievements, passing tests count, and empirical metrics first, followed by clear technical rationale.
+
+      ## 6. Graph-First Architecture & Code Intelligence (codebase-memory-mcp Primacy)
+      - ALWAYS prioritize codebase-memory-mcp graph tools over grep/glob for code discovery.
+      - Auto-index: Check `list_projects`; if the target repository is unindexed, run `index_repository(repo_path="<path>")` immediately.
+      - Surgical navigation: Use `search_graph` for definitions, `trace_path` for bidirectional dependency trees, and `get_code_snippet` for exact method bodies.
+      - Global analysis: Use `get_architecture` for Leiden clusters and `query_graph` with openCypher for complex relational inspection and dead code elimination.
+      - Fallback policy: Grep/glob are strictly secondary fallbacks, permitted only for raw text literals, regex log searches, environment keys, non-code configs, or when graph tools return insufficient results.
+
+      ## 7. Autonomic Multimodal Ingestion (Graphify & Watch)
+      - Holistic Knowledge Graphs: For comprehensive cross-repository audits, doc-to-code mapping, or deep structural analysis, activate `/graphify`. If `graphify-out/graph.json` exists, always query it via `graphify query "<question>"`.
+      - Video & Audio Comprehension: When provided with a video link (YouTube, Vimeo, Twitter/X, TikTok) or local media file, activate `/watch` immediately to extract keyframes via ffmpeg and transcribe audio via Whisper.
+
+      ## 8. Hyper-Concurrency Tool Dispatch
+      - Never perform sequential tool calls when operations are logically independent. Dispatch all tool calls concurrently in a single turn.
+      - Proactively dispatch autonomous subagents (`subagent`, `subagent_fork`, `workflow`) for broad multi-angle explorations.
+
+      ## 9. Effort-Tiered Multi-Agent Coordination (Codex Subagent Protocol)
+      - Effort: Low (Atomic): Perform directly in root session; zero subagents to minimize latency and tokens.
+      - Effort: Medium (Parallel Domains): When facing 2+ independent tasks, test files, or research paths, dispatch one isolated subagent per domain concurrently in the same turn (`dispatching-parallel-agents`).
+      - Effort: High (Subagent-Driven Development): For multi-module implementation plans, act as Architect. Dispatch an Implementer subagent (`run_in_background: false`), followed by a Reviewer subagent for spec and quality audit before proceeding to the next task.
+      - Effort: Max (Swarm Orchestration): For large-scale audits across dozens of files or repo migrations, orchestrate via `workflow`.
+      - Synchronous Execution: Set `run_in_background: false` whenever your next action depends on immediate empirical verification.
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
-    maxBytes: 65536
+    maxBytes: 262144
 
 # ── shell ───────────────────────────────────────────────────────────────────
 
@@ -184,9 +205,9 @@
     - id: tool-result-pruner
       name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
       config:
-        thresholdChars: 8192
-        headChars: 4096
-        tailChars: 1024
+        thresholdChars: 65536
+        headChars: 32768
+        tailChars: 16384
 
 # ── delegation and workflows ────────────────────────────────────────────────
 
@@ -286,10 +307,9 @@
 
 # ── presentation ────────────────────────────────────────────────────────────
 
-# PTC mode for this agent alone. The row waits for the host's `codeRuntime`
-# rather than assuming it: a deployment that composes no TypeScript runtime
-# fails this preset at mount, naming this id, instead of at the first request.
+# Native tool presentation: the model sees each tool schema natively and can
+# dispatch multiple calls in parallel per step (handled by the agent-loop scheduler).
 - id: tool-presentation
   name: '@deepseek-ai/dsh-agent-tool-presentation'
   config:
-    mode: ptc
+    mode: native

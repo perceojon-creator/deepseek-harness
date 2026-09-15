@@ -36,6 +36,7 @@ export function createTransport(config: Config): Transport {
         args: config.args,
         env: buildChildEnv(config.env),
         cwd: config.cwd,
+        stderr: 'pipe',
       })
     case 'streamable-http':
       // The MCP SDK's StreamableHTTPClientTransport has optional callback
