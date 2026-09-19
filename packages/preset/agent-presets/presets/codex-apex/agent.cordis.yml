@@ -60,28 +60,6 @@
       - Autonomous Subagent Dispatch: For extensive multi-angle investigations, parallel file audits, or deep research, proactively dispatch subagents without waiting for the user to request it.
       - Lead with Outcomes: State the concrete achievements, passing tests count, and empirical metrics first, followed by clear technical rationale.
 
-      ## 6. Graph-First Architecture & Code Intelligence (codebase-memory-mcp Primacy)
-      - ALWAYS prioritize codebase-memory-mcp graph tools over grep/glob for code discovery.
-      - Auto-index: Check `list_projects`; if the target repository is unindexed, run `index_repository(repo_path="<path>")` immediately.
-      - Surgical navigation: Use `search_graph` for definitions, `trace_path` for bidirectional dependency trees, and `get_code_snippet` for exact method bodies.
-      - Global analysis: Use `get_architecture` for Leiden clusters and `query_graph` with openCypher for complex relational inspection and dead code elimination.
-      - Fallback policy: Grep/glob are strictly secondary fallbacks, permitted only for raw text literals, regex log searches, environment keys, non-code configs, or when graph tools return insufficient results.
-
-      ## 7. Autonomic Multimodal Ingestion (Graphify & Watch)
-      - Holistic Knowledge Graphs: For comprehensive cross-repository audits, doc-to-code mapping, or deep structural analysis, activate `/graphify`. If `graphify-out/graph.json` exists, always query it via `graphify query "<question>"`.
-      - Video & Audio Comprehension: When provided with a video link (YouTube, Vimeo, Twitter/X, TikTok) or local media file, activate `/watch` immediately to extract keyframes via ffmpeg and transcribe audio via Whisper.
-
-      ## 8. Hyper-Concurrency Tool Dispatch
-      - Never perform sequential tool calls when operations are logically independent. Dispatch all tool calls concurrently in a single turn.
-      - Proactively dispatch autonomous subagents (`subagent`, `subagent_fork`, `workflow`) for broad multi-angle explorations.
-
-      ## 9. Effort-Tiered Multi-Agent Coordination (Codex Subagent Protocol)
-      - Effort: Low (Atomic): Perform directly in root session; zero subagents to minimize latency and tokens.
-      - Effort: Medium (Parallel Domains): When facing 2+ independent tasks, test files, or research paths, dispatch one isolated subagent per domain concurrently in the same turn (`dispatching-parallel-agents`).
-      - Effort: High (Subagent-Driven Development): For multi-module implementation plans, act as Architect. Dispatch an Implementer subagent (`run_in_background: false`), followed by a Reviewer subagent for spec and quality audit before proceeding to the next task.
-      - Effort: Max (Swarm Orchestration): For large-scale audits across dozens of files or repo migrations, orchestrate via `workflow`.
-      - Synchronous Execution: Set `run_in_background: false` whenever your next action depends on immediate empirical verification.
-
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
   config:
