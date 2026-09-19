@@ -84,16 +84,16 @@
           - -y
           - computer-use-mcp@latest
 
-    # 7. Acceso y Sandbox de Sistema de Archivos
-    - id: mcp-filesystem
-      name: '@deepseek-ai/dsh-mcp-client'
-      config:
-        serverName: filesystem
-        transport: stdio
-        command: node
-        args:
-          - C:\Users\Admin\Desktop\deepseek-harness\node_modules\.pnpm\@modelcontextprotocol+server-filesystem@2026.7.10_zod@4.4.3\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js
-          - C:\Users\Admin\.agent-os-data\mcp-workspace
+    # 7. Acceso y Sandbox de Sistema de Archivos (DESACTIVADO — redundante con herramientas nativas DSH: read, write, edit, glob, grep, pwsh)
+    # - id: mcp-filesystem
+    #   name: '@deepseek-ai/dsh-mcp-client'
+    #   config:
+    #     serverName: filesystem
+    #     transport: stdio
+    #     command: node
+    #     args:
+    #       - C:\Users\Admin\Desktop\deepseek-harness\node_modules\.pnpm\@modelcontextprotocol+server-filesystem@2026.7.10_zod@4.4.3\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js
+    #       - C:\Users\Admin\.agent-os-data\mcp-workspace
 
     # 8. Gestor de Paquetes de Windows (winget)
     - id: mcp-winget
