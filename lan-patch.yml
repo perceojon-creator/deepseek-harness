@@ -114,14 +114,14 @@
     #       Authorization: !!js 'Bearer ' + (process.env.OBSIDIAN_MCP_TOKEN ?? '')
     #     failOnStartupError: false
 
-    # 10. Plataforma Cuantitativa SQX (DESACTIVADO POR TIEMPO DE ARRANQUE)
-    # - id: mcp-sqx
-    #   name: '@deepseek-ai/dsh-mcp-client'
-    #   config:
-    #     serverName: sqx
-    #     transport: streamable-http
-    #     url: 'http://localhost:8080/mcp'
-    #     failOnStartupError: false
+    # 10. Plataforma Cuantitativa SQX (Habilitado para AlgoWizard y Retester)
+    - id: mcp-sqx
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: sqx
+        transport: streamable-http
+        url: 'http://localhost:8080/mcp'
+        failOnStartupError: false
 
     # 11. MetaEditor Bridge (DESACTIVADO POR TIEMPO DE ARRANQUE)
     # - id: mcp-metaeditor
