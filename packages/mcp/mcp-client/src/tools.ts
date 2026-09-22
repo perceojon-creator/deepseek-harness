@@ -140,6 +140,28 @@ export function publicToolName(serverName: string, rawName: string): string {
  * @returns A map of registered public tool names to their unregister
  *   disposers — the exact set of live registrations owned by this server.
  */
+/**
+ * External MCP tools that redundantly duplicate native DSH core capabilities
+ * (e.g. MetaTrader filesystem and web request tools when native read/write/glob/grep/fetch exist).
+ */
+const REDUNDANT_MCP_TOOLS: ReadonlySet<string> = new Set([
+  'mcp__terminal__read_file',
+  'mcp__terminal__read_file_by_lines',
+  'mcp__terminal__read_binary_file',
+  'mcp__terminal__write_file',
+  'mcp__terminal__write_binary_file',
+  'mcp__terminal__create_new_file',
+  'mcp__terminal__create_new_folder',
+  'mcp__terminal__delete_file',
+  'mcp__terminal__replace_text_in_file',
+  'mcp__terminal__find_files_by_glob',
+  'mcp__terminal__find_files_by_name_keyword',
+  'mcp__terminal__list_directory',
+  'mcp__terminal__search_regex',
+  'mcp__terminal__search_text',
+  'mcp__terminal__send_web_request',
+])
+
 export async function syncTools(
   client: Client,
   ctx: Context,
@@ -153,6 +175,9 @@ export async function syncTools(
     const response = await listToolsUncached(client, cursor)
     for (const tool of response.tools) {
       const publicName = publicToolName(opts.serverName, tool.name)
+      if (REDUNDANT_MCP_TOOLS.has(publicName)) {
+        continue
+      }
       if (definitions.has(publicName)) {
         throw new Error(
           `mcp-client(${opts.serverName}): server listed tool "${tool.name}" more than once — invalid tool list`,

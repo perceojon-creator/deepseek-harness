@@ -28,13 +28,30 @@ function pad(indent: number): string {
   return '  '.repeat(indent)
 }
 
+/**
+ * Condense an overly verbose tool or parameter description to its direct primary action,
+ * preserving clarity while eliminating encyclopedic operational essays from the prompt.
+ */
+function condenseProse(text: string): string {
+  if (text.length <= 150) return text
+  // Split on sentence boundary or list bullet
+  const parts = text.split(/(?<=[.?!])\s+|\s*[*•]\s*/)
+  const firstSentence = parts[0]?.trim() || text
+  if (firstSentence.length >= 20 && firstSentence.length <= 220) {
+    return firstSentence.endsWith('.') ? firstSentence : `${firstSentence}.`
+  }
+  const cut = text.slice(0, 160).replace(/\s+\S*$/, '')
+  return `${cut}...`
+}
+
 /** A one-line JSDoc block for a schema `description`, or no lines when there is none. */
 function docLines(description: unknown, indent: number): string[] {
   if (typeof description !== 'string' || description.length === 0) return []
-  // Collapse prose to stable one-line docs and escape comment closers so a
-  // schema description cannot terminate generated JSDoc.
+  // Collapse prose to stable one-line docs, condense verbose essays,
+  // and escape comment closers so a schema description cannot terminate generated JSDoc.
   const collapsed = description.replace(/\s+/g, ' ').trim()
-  return [`${pad(indent)}/** ${collapsed.replaceAll('*/', String.raw`*\/`)} */`]
+  const condensed = condenseProse(collapsed)
+  return [`${pad(indent)}/** ${condensed.replaceAll('*/', String.raw`*\/`)} */`]
 }
 
 /** Render one scalar already validated by the unified schema boundary. */

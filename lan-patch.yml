@@ -17,28 +17,28 @@
         transport: stdio
         command: C:\Users\Admin\.local\bin\codebase-memory-mcp.exe
 
-    # 2. Búsqueda Web Privada DuckDuckGo (sin API key requerida)
-    - id: mcp-duckduckgo
-      name: '@deepseek-ai/dsh-mcp-client'
-      config:
-        serverName: ddg
-        transport: stdio
-        command: C:\Users\Admin\AppData\Roaming\npm\node_modules\mcp-duckduckgo\bin\duckduckgo-mcp.exe
+    # 2. Búsqueda Web Privada DuckDuckGo (DESACTIVADO — redundante con Tavily y web_search)
+    # - id: mcp-duckduckgo
+    #   name: '@deepseek-ai/dsh-mcp-client'
+    #   config:
+    #     serverName: ddg
+    #     transport: stdio
+    #     command: C:\Users\Admin\AppData\Roaming\npm\node_modules\mcp-duckduckgo\bin\duckduckgo-mcp.exe
 
-    # 3. Búsqueda Web Semántica Exa
-    - id: mcp-exa
-      name: '@deepseek-ai/dsh-mcp-client'
-      config:
-        serverName: exa
-        transport: stdio
-        command: cmd.exe
-        args:
-          - /c
-          - npx
-          - -y
-          - exa-mcp
-        env:
-          EXA_API_KEY: !!js process.env.EXA_API_KEY ?? ''
+    # 3. Búsqueda Web Semántica Exa (DESACTIVADO — redundante con Tavily y web_search)
+    # - id: mcp-exa
+    #   name: '@deepseek-ai/dsh-mcp-client'
+    #   config:
+    #     serverName: exa
+    #     transport: stdio
+    #     command: cmd.exe
+    #     args:
+    #       - /c
+    #       - npx
+    #       - -y
+    #       - exa-mcp
+    #     env:
+    #       EXA_API_KEY: !!js process.env.EXA_API_KEY ?? ''
 
     # 4. Motor de Búsqueda Agéntica Tavily
     - id: mcp-tavily
