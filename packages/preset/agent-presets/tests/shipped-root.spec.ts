@@ -124,14 +124,14 @@ describe('the shipped preset root', () => {
     const compactionConfig = Array.isArray(compaction?.config) ? compaction.config : []
     const pruner = findEntry(compactionConfig, 'tool-result-pruner')
 
-    expect((presentation?.config as Record<string, unknown> | undefined)?.mode).toBe('native')
+    expect((presentation?.config as Record<string, unknown> | undefined)?.mode).toBe('ptc')
     expect(pruner?.config).toEqual({
       thresholdChars: 65_536,
       headChars: 32_768,
       tailChars: 16_384,
     })
     const personaConfig = persona?.config as Record<string, unknown> | undefined
-    expect(personaConfig?.text).not.toContain('run_code')
+    expect(personaConfig?.text).toContain('Codex Apex')
     expect(personaConfig?.text).not.toContain('<5,000 tokens')
   })
 })
