@@ -5,6 +5,10 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
+import { renderSelfAuditSection } from './self-audit-prompt.ts'
+
+export { renderSelfAuditSection } from './self-audit-prompt.ts'
 
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
@@ -20,7 +24,21 @@ export const Config: z<Config> = z.object({
 })
 
 export function apply(ctx: Context, config: Config): void {
-  // Scaffolding skeleton — layers wired in later tasks
-  void ctx
   void config
+
+  // Layer 1: Metacognitive self-audit system prompt section
+  ctx.systemPrompt.section({
+    name: 'supervisor:self-audit',
+    order: FIRST_PARTY_SECTION_ORDER.TOOL_GOAL + 10,
+    text: () => {
+      const roots = ctx.agents.roots()
+      for (const agent of roots) {
+        const goal = ctx.goals.get(agent)
+        if (goal !== undefined && goal.phase === 'active') {
+          return renderSelfAuditSection(goal.objective)
+        }
+      }
+      return ''
+    },
+  })
 }
