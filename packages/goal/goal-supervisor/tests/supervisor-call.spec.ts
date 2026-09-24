@@ -33,12 +33,9 @@ describe('parseVerdict', () => {
 })
 
 describe('resolveSupervisorModel', () => {
-  const fakeSession = {
-    header: {
-      config: { provider: 'session-provider', model: 'session-model' },
-    },
-  }
-  const fakeAgent = { session: fakeSession } as unknown as import('@deepseek-ai/dsh-agent').Agent
+  const fakeAgent = {
+    options: { provider: 'session-provider', model: 'session-model' },
+  } as unknown as import('@deepseek-ai/dsh-agent').Agent
 
   it('prefers configured provider when available in ctx.llm', () => {
     const fakeCtx = {

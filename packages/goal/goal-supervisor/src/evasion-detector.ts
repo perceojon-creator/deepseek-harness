@@ -24,8 +24,8 @@ export function detectEvasion(
   const signals: EvasionSignal[] = []
 
   // Extract tool calls from the turn
-  const toolCalls = turnEvents.filter(e => e.type === 'tool/execute')
-  const toolNames = toolCalls.map(e => (e.data as { name: string }).name)
+  const toolCalls = turnEvents.filter((e): e is Extract<SessionEvent, { type: 'tool/call' }> => e.type === 'tool/call')
+  const toolNames = toolCalls.map(e => e.data.name)
 
   // Signal: many tool calls but none are verification commands
   if (toolNames.length >= MIN_CALLS_FOR_VERIFICATION_CHECK
@@ -38,9 +38,13 @@ export function detectEvasion(
 
   // Signal: attempting update_goal(complete) without prior verification
   const completeAttemptIndex = toolCalls.findIndex((e) => {
-    const data = e.data as { name: string; arguments: unknown }
-    return data.name === 'update_goal'
-      && (data.arguments as { action?: string })?.action === 'complete'
+    if (e.data.name !== 'update_goal') return false
+    try {
+      const args = typeof e.data.arguments === 'string' ? JSON.parse(e.data.arguments) : e.data.arguments
+      return (args as { action?: string })?.action === 'complete'
+    } catch {
+      return false
+    }
   })
   if (completeAttemptIndex !== -1) {
     const verificationBeforeComplete = toolNames.slice(0, completeAttemptIndex).some(name => VERIFICATION_TOOLS.has(name))

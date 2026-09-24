@@ -3,8 +3,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { GoalView } from '@deepseek-ai/dsh-goal'
-import { BlockAssembler } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, StreamChunk, TextBlock } from '@deepseek-ai/dsh-llm'
+import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, GenerateOptions, StreamChunk, TextBlock } from '@deepseek-ai/dsh-llm'
 import type { EvasionSignal, SupervisorVerdict } from './types.ts'
 import { renderSupervisorPrompt } from './supervisor-prompt.ts'
 
@@ -22,13 +22,12 @@ export function extractSessionSummary(agent: Agent, turnStartSeq: number): strin
   const parts: string[] = []
 
   for (const event of events.slice(-30)) {
-    if (event.type === 'tool/execute') {
-      const data = event.data as { name: string; arguments: unknown }
-      parts.push(`Tool: ${data.name}(${JSON.stringify(data.arguments).slice(0, 200)})`)
+    if (event.type === 'tool/call') {
+      parts.push(`Tool: ${event.data.name}(${String(event.data.arguments).slice(0, 200)})`)
     }
     if (event.type === 'assistant/message') {
-      const data = event.data as { content: Array<{ type: string; text?: string }> }
-      for (const block of data.content ?? []) {
+      const message = (event.data as { message: { content: readonly ContentBlock[] } }).message
+      for (const block of message.content ?? []) {
         if (block.type === 'reasoning' && block.text) {
           parts.push(`Reasoning: ${block.text.slice(0, 500)}`)
         }
@@ -57,9 +56,10 @@ export function resolveSupervisorModel(
     return { provider: config.supervisorProvider, model: config.supervisorModel }
   }
 
-  // Fallback: use the session's active provider/model
-  const header = agent.session.header
-  return { provider: header.config.provider, model: header.config.model }
+  // Fallback: use the agent's active provider/model
+  const provider = agent.options.provider ?? ctx.llm.listProviders()[0]?.id ?? 'default'
+  const model = agent.options.model ?? 'default'
+  return { provider, model }
 }
 
 /**
@@ -133,13 +133,12 @@ export async function evaluateWithSupervisor(
     provider,
     model,
     system: systemPrompt,
-    messages: [{
-      role: 'user',
+    messages: [createUserMessage({
       content: [{ type: 'text', text: 'Evaluate the agent state now.' }],
-    }],
+      source: { kind: 'plugin', plugin: 'goal-supervisor' },
+    })],
     temperature: 0,
     maxTokens: 500,
-    purpose: undefined,
   }
 
   try {

@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest'
 import { detectEvasion } from '../src/evasion-detector.ts'
 import { GoalId } from '@deepseek-ai/dsh-goal'
 import type { GoalView } from '@deepseek-ai/dsh-goal'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 function toolCallEvent(name: string, seq: number, args: Record<string, unknown> = {}): SessionEvent {
   return {
-    type: 'tool/execute',
+    type: 'tool/call',
     seq,
-    data: { name, arguments: args, result: { content: [] } },
+    data: {
+      turn: 1,
+      step: 1,
+      callId: ToolCallId(`call-${seq}`),
+      name,
+      arguments: JSON.stringify(args),
+    },
   } as unknown as SessionEvent
 }
 

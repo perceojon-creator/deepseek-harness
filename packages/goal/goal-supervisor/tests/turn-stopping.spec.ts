@@ -1,21 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GoalId } from '@deepseek-ai/dsh-goal'
-import type { GoalView } from '@deepseek-ai/dsh-goal'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { CompletionGate } from '../src/completion-gate.ts'
 
 describe('Turn stopping and completion gate interactions', () => {
-  const _goal: GoalView = {
-    id: GoalId('g1'),
-    revision: 1,
-    objective: 'Port C++ to Rust',
-    phase: 'active',
-    maxGoalRounds: 50,
-    roundsStarted: 2,
-    createdAt: 0,
-    updatedAt: 0,
-    activation: 'armed',
-  }
-
   it('steers the agent when supervisor redirects at turn-stopping', async () => {
     const steeredMessages: unknown[] = []
     const fakeAgent = {
@@ -26,7 +13,7 @@ describe('Turn stopping and completion gate interactions', () => {
       session: {
         events: [
           { type: 'turn/start', seq: 1 },
-          { type: 'tool/execute', seq: 2, data: { name: 'write', arguments: {} } },
+          { type: 'tool/call', seq: 2, data: { callId: ToolCallId('c1'), name: 'write', arguments: '{}' } },
         ],
       },
     }
