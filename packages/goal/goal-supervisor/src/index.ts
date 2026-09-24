@@ -12,6 +12,7 @@ import { renderLedgerInstruction } from './round-prompt-enrichment.ts'
 
 export { renderSelfAuditSection } from './self-audit-prompt.ts'
 export { renderLedgerInstruction } from './round-prompt-enrichment.ts'
+export { detectEvasion } from './evasion-detector.ts'
 
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
