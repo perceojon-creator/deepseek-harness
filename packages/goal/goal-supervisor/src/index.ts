@@ -25,14 +25,18 @@ export { CompletionGate } from './completion-gate.ts'
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
 
+/** Configuration options for the metacognitive goal supervisor. */
 export interface Config {
+  /** Optional provider override for the supervisory LLM. */
   supervisorProvider?: string
+  /** Optional model override for the supervisory LLM. */
   supervisorModel?: string
 }
 
+/** Schemastery schema for goal-supervisor configuration. */
 export const Config: z<Config> = z.object({
-  supervisorProvider: z.string(),
-  supervisorModel: z.string(),
+  supervisorProvider: z.string().description('Optional provider override for the supervisory LLM.'),
+  supervisorModel: z.string().description('Optional model override for the supervisory LLM.'),
 })
 
 export function apply(ctx: Context, config: Config): void {
@@ -80,8 +84,8 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => {
     if (exec.agent && exec.name === 'update_goal') {
       try {
-        const args = typeof exec.arguments === 'string' ? JSON.parse(exec.arguments) : exec.arguments
-        if (args && (args as { action?: string }).action === 'complete') {
+        const raw: unknown = typeof exec.arguments === 'string' ? JSON.parse(exec.arguments) : exec.arguments
+        if (typeof raw === 'object' && raw !== null && 'action' in raw && (raw as Record<string, unknown>).action === 'complete') {
           if (!gate.canComplete(exec.agent.id)) {
             return {
               kind: 'block',

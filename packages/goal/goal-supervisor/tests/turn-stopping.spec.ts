@@ -4,10 +4,14 @@ import { CompletionGate } from '../src/completion-gate.ts'
 
 describe('Turn stopping and completion gate interactions', () => {
   it('steers the agent when supervisor redirects at turn-stopping', async () => {
-    const steeredMessages: unknown[] = []
+    interface TestSteeredMessage {
+      readonly content: readonly { readonly type: string; readonly text: string }[]
+      readonly source: { readonly kind: string; readonly plugin: string }
+    }
+    const steeredMessages: TestSteeredMessage[] = []
     const fakeAgent = {
       id: 'agent-test',
-      steer: vi.fn((msg: unknown) => {
+      steer: vi.fn((msg: TestSteeredMessage) => {
         steeredMessages.push(msg)
       }),
       session: {
@@ -28,9 +32,9 @@ describe('Turn stopping and completion gate interactions', () => {
     })
 
     expect(fakeAgent.steer).toHaveBeenCalledTimes(1)
-    expect(steeredMessages[0]).toMatchObject({
-      content: [{ text: expect.stringContaining('cargo test') }],
-    })
+    const steeredMsg = steeredMessages[0]
+    expect(steeredMsg).toBeDefined()
+    expect(steeredMsg?.content[0]?.text).toContain('cargo test')
     expect(gate.canComplete(fakeAgent.id)).toBe(false)
   })
 

@@ -4,7 +4,10 @@ import type { GoalView } from '@deepseek-ai/dsh-goal'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { EvasionSignal } from './types.ts'
 
-export const VERIFICATION_TOOLS = new Set(['pwsh', 'bash', 'run_code'])
+/** Tool names recognized as empirical verification commands. */
+export const VERIFICATION_TOOLS: ReadonlySet<string> = new Set(['pwsh', 'bash', 'run_code'])
+
+/** Minimum tool calls before triggering unverified-action detection. */
 export const MIN_CALLS_FOR_VERIFICATION_CHECK = 3
 
 /**
@@ -40,8 +43,8 @@ export function detectEvasion(
   const completeAttemptIndex = toolCalls.findIndex((e) => {
     if (e.data.name !== 'update_goal') return false
     try {
-      const args = typeof e.data.arguments === 'string' ? JSON.parse(e.data.arguments) : e.data.arguments
-      return (args as { action?: string })?.action === 'complete'
+      const parsed: unknown = typeof e.data.arguments === 'string' ? JSON.parse(e.data.arguments) : e.data.arguments
+      return typeof parsed === 'object' && parsed !== null && 'action' in parsed && (parsed as Record<string, unknown>).action === 'complete'
     } catch {
       return false
     }

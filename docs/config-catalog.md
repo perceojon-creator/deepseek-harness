@@ -789,6 +789,24 @@ export interface Config {
 
 Source: [`packages/goal/goal/src/index.ts:116`](../packages/goal/goal/src/index.ts)
 
+<a id="deepseek-aidsh-goal-supervisor"></a>
+
+## `@deepseek-ai/dsh-goal-supervisor`
+
+Requires: `agents` · `goals` · `llm` · `systemPrompt` · `tools`
+
+```ts config-catalog
+/** Configuration options for the metacognitive goal supervisor. */
+export interface Config {
+  /** Optional provider override for the supervisory LLM. */
+  supervisorProvider?: string
+  /** Optional model override for the supervisory LLM. */
+  supervisorModel?: string
+}
+```
+
+Source: [`packages/goal/goal-supervisor/src/index.ts:29`](../packages/goal/goal-supervisor/src/index.ts)
+
 <a id="deepseek-aidsh-headless"></a>
 
 ## `@deepseek-ai/dsh-headless`

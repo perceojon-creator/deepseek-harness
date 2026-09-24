@@ -8,14 +8,20 @@ import type { ContentBlock, GenerateOptions, StreamChunk, TextBlock } from '@dee
 import type { EvasionSignal, SupervisorVerdict } from './types.ts'
 import { renderSupervisorPrompt } from './supervisor-prompt.ts'
 
+/** Configuration options for the LLM supervisor provider and model. */
 export interface SupervisorConfig {
+  /** Optional provider override for the supervisor. */
   readonly supervisorProvider?: string
+  /** Optional model override for the supervisor. */
   readonly supervisorModel?: string
 }
 
 /**
  * Extract a compact session summary from the agent's recent events.
  * Includes reasoning blocks when available (reading the model's thoughts).
+ * @param agent - The agent instance whose session is being summarized.
+ * @param turnStartSeq - The sequence number of the turn start event.
+ * @returns Formatted summary string of recent session activity.
  */
 export function extractSessionSummary(agent: Agent, turnStartSeq: number): string {
   const events = agent.session.events.filter(e => e.seq > turnStartSeq)
@@ -23,11 +29,11 @@ export function extractSessionSummary(agent: Agent, turnStartSeq: number): strin
 
   for (const event of events.slice(-30)) {
     if (event.type === 'tool/call') {
-      parts.push(`Tool: ${event.data.name}(${String(event.data.arguments).slice(0, 200)})`)
+      parts.push(`Tool: ${event.data.name}(${event.data.arguments.slice(0, 200)})`)
     }
     if (event.type === 'assistant/message') {
       const message = (event.data as { message: { content: readonly ContentBlock[] } }).message
-      for (const block of message.content ?? []) {
+      for (const block of message.content) {
         if (block.type === 'reasoning' && block.text) {
           parts.push(`Reasoning: ${block.text.slice(0, 500)}`)
         }
@@ -43,6 +49,10 @@ export function extractSessionSummary(agent: Agent, turnStartSeq: number): strin
 
 /**
  * Resolve the supervisor's provider/model, cascading from config to session active.
+ * @param ctx - The Cordis context with LLM service.
+ * @param agent - The active agent whose configuration provides fallbacks.
+ * @param config - The supervisor configuration options.
+ * @returns The resolved provider and model identifiers.
  */
 export function resolveSupervisorModel(
   ctx: Context,
@@ -64,6 +74,8 @@ export function resolveSupervisorModel(
 
 /**
  * Consume a stream into assembled text.
+ * @param stream - The stream of LLM chunks to collect.
+ * @returns The assembled plain text from all text blocks.
  */
 export async function streamToText(
   stream: AsyncIterable<StreamChunk>,
@@ -80,6 +92,8 @@ export async function streamToText(
 
 /**
  * Parse the supervisor's JSON response into a verdict.
+ * @param text - The raw LLM response text containing JSON verdict.
+ * @returns The parsed supervisor verdict.
  */
 export function parseVerdict(text: string): SupervisorVerdict {
   const jsonMatch = text.match(/\{[^{}]+\}/)

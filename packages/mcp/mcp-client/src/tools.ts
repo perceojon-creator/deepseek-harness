@@ -162,6 +162,14 @@ const REDUNDANT_MCP_TOOLS: ReadonlySet<string> = new Set([
   'mcp__terminal__send_web_request',
 ])
 
+/**
+ * Synchronize MCP client tool definitions with the local Cordis tools registry.
+ * @param client - The MCP client instance to query for tools.
+ * @param ctx - The Cordis context with tool registry.
+ * @param opts - Tool bridge options for prefixing and error handling.
+ * @param previous - Map of previously registered tool disposers to update.
+ * @returns Map of active tool disposers for the current generation.
+ */
 export async function syncTools(
   client: Client,
   ctx: Context,

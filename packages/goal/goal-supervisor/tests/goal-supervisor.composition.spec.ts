@@ -124,9 +124,8 @@ describe('dsh-goal-supervisor end-to-end composition', () => {
     if (decision.kind === 'enter') {
       const ledgerMsg = decision.messages.find(m => m.source.kind === 'plugin' && m.source.plugin === 'goal-supervisor')
       expect(ledgerMsg).toBeDefined()
-      expect(ledgerMsg?.content[0]).toMatchObject({
-        text: expect.stringContaining('<progress_ledger>'),
-      })
+      const firstBlock = ledgerMsg?.content[0] as { type: string; text?: string } | undefined
+      expect(firstBlock?.text).toContain('<progress_ledger>')
     }
   })
 
@@ -149,8 +148,7 @@ describe('dsh-goal-supervisor end-to-end composition', () => {
     }))
 
     expect(result.isError).toBe(true)
-    expect(result.content[0]).toMatchObject({
-      text: expect.stringContaining('supervisor has not certified completion'),
-    })
+    const errBlock = result.content[0] as { type: string; text?: string } | undefined
+    expect(errBlock?.text).toContain('supervisor has not certified completion')
   })
 })
