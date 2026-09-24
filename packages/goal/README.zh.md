@@ -28,6 +28,7 @@ goal 组为 agent 会话提供一个持久的完成目标，在重启、resume�
 | [`tool-goal`](tool-goal/README.zh.md) | 模型工具 `get_goal`、`create_goal`、`update_goal` | 注册到 `ctx.tools` |
 | [`command-goal`](command-goal/README.zh.md) | UI 命令平面中的用户 `/goal` 命令 | 注册到 `ctx.commands` |
 | [`goal-round-driver`](goal-round-driver/README.zh.md) | 自动续行：把 active 的 goal 变成连续多轮 | 无服务键 |
+| [`goal-supervisor`](goal-supervisor/README.zh.md) | 五层神经认知元监督器：防止过早完成目标 | 无服务键 |
 
 -----
 

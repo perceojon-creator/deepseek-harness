@@ -28,6 +28,7 @@ The goal group gives an agent session one durable completion objective that surv
 | [`tool-goal`](tool-goal/README.md) | Model tools `get_goal`, `create_goal`, `update_goal` | registers on `ctx.tools` |
 | [`command-goal`](command-goal/README.md) | Human `/goal` command in UI command planes | registers on `ctx.commands` |
 | [`goal-round-driver`](goal-round-driver/README.md) | Automatic continuation: turns an active goal into sequential rounds | no service key |
+| [`goal-supervisor`](goal-supervisor/README.md) | Metacognitive five-layer supervisor preventing premature goal completion | no service key |
 
 -----
 

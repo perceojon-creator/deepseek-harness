@@ -301,6 +301,12 @@
     - id: goal-round-driver
       name: '@deepseek-ai/dsh-goal-round-driver'
 
+    - id: goal-supervisor
+      name: '@deepseek-ai/dsh-goal-supervisor'
+      config:
+        supervisorProvider: anthropic
+        supervisorModel: claude-sonnet-4-5-20250514
+
     - id: command-goal
       name: '@deepseek-ai/dsh-command-goal'
 
