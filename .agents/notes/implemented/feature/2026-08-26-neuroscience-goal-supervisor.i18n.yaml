@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-26-neuroscience-goal-supervisor.md
+2026-08-26-neuroscience-goal-supervisor.md: 59a74767819cc937e5ea3d315758e178a9969cc6
+2026-08-26-neuroscience-goal-supervisor.zh.md: 7146073372ff8d3b92dedec5e6375581a302d4c4
