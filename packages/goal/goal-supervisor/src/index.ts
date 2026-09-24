@@ -5,6 +5,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import type { PostToolDecision } from '@deepseek-ai/dsh-tools'
@@ -54,19 +55,25 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   // Layer 2: Progress ledger enrichment when a goal round is admitted
-  ctx.on('agent/pre-step', ({ agent, messages }, next) => {
+  ctx.on('agent/pre-step', async ({ agent, messages }, next): Promise<PreStepDecision> => {
+    const decision = await next()
+    if (decision.kind === 'reject') return decision
     const goalMessage = messages.find(m => m.source.kind === 'goal')
     if (goalMessage && goalMessage.source.kind === 'goal') {
       const goal = ctx.goals.get(agent)
       if (goal !== undefined && goal.phase === 'active') {
         const text = renderLedgerInstruction(goal.objective, goalMessage.source.round, goal.maxGoalRounds)
-        agent.inbox.prepend('next-step', createUserMessage({
+        const ledgerMsg = createUserMessage({
           content: [{ type: 'text', text }],
           source: { kind: 'plugin', plugin: 'goal-supervisor', form: 'notice', summary: 'Progress ledger requirement' },
-        }))
+        })
+        return {
+          ...decision,
+          messages: [ledgerMsg, ...decision.messages],
+        }
       }
     }
-    return next()
+    return decision
   })
 
   // Layer 5 (Gate): Intercept update_goal(complete) tool execution
@@ -78,7 +85,10 @@ export function apply(ctx: Context, config: Config): void {
           if (!gate.canComplete(exec.agent.id)) {
             return {
               kind: 'block',
-              feedback: 'Goal completion blocked: the metacognitive supervisor has not certified completion. You cannot mark complete until the supervisor verifies that the objective is achieved with real evidence.',
+              feedback: [{
+                type: 'text',
+                text: 'Goal completion blocked: the metacognitive supervisor has not certified completion. You cannot mark complete until the supervisor verifies that the objective is achieved with real evidence.',
+              }],
             }
           }
         }
