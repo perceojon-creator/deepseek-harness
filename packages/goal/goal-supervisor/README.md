@@ -1,5 +1,5 @@
 ---
-description: "Neuroscience-aligned metacognitive goal supervisor with five-layer verification."
+description: "Neuroscience-aligned metacognitive goal supervisor with multi-layer verification."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-goal-supervisor` provides a five-layer metacognitive supervisor that prevents premature goal completion, especially by fast/flash models, using an architecture modeled on the ACC and dlPFC prefrontal cortex. The supervisor inspects working memory prompts, progress ledgers, deterministic evasion patterns, supervisory LLM critiques, and an authoritative completion gate before allowing any goal to conclude. Mount it alongside `dsh-goal-round-driver` when autonomous goal pursuit requires rigorous empirical verification rather than passive self-reports.
+`dsh-goal-supervisor` provides a multi-layer metacognitive supervisor that prevents premature goal completion, especially by fast/flash models, using an architecture modeled on neuroscience executive-control circuits (ACC, dlPFC, OFC, VTA, vmPFC, cerebellum, hippocampus). The supervisor inspects working memory prompts, progress ledgers, deterministic evasion patterns (perseveration, intention drift, hedging), supervisory LLM critiques with salience maps, episodic memory consolidation, and an authoritative completion gate before allowing any goal to conclude. Mount it alongside `dsh-goal-round-driver` when autonomous goal pursuit requires rigorous empirical verification rather than passive self-reports.
 
 ## Table of Contents
 
@@ -35,18 +35,23 @@ Mount `dsh-goal-supervisor` in your Cordis profile alongside `dsh-goal` and `dsh
   config:
     supervisorProvider: deepseek
     supervisorModel: deepseek-chat
+    consolidationInterval: 5
 ```
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-goal-supervisor) is the exhaustive source for every accepted field.
 
-### Five-layer verification architecture
+### Multi-layer verification architecture
 
 | Layer | Anatomical equivalent | Mechanism |
 |---|---|---|
-| 1. Self-audit prompt | Phonological loop / working memory | Dynamic `<self_audit>` section in system prompt |
-| 2. Progress ledger | dlPFC executive control | `<progress_ledger>` instructions on admitted rounds |
-| 3. Evasion detector | Anterior Cingulate Cortex (ACC) | Deterministic conflict signal detection (`NO_VERIFICATION`, `PREMATURE_COMPLETE`) |
-| 4. Supervisory critique | Deep reasoning / metacognitive judge | LLM evaluation call with fail-closed verdict parsing |
+| 1. Self-audit prompt | Phonological loop / vmPFC reward inversion | Dynamic `<self_audit>` section with temporal-discount reframing |
+| 2. Progress ledger | dlPFC executive control + insular salience | `<progress_ledger>` with risk-ranked attention map on admitted rounds |
+| 3a. Evasion detector | Anterior Cingulate Cortex (ACC) | Deterministic conflict signals (`NO_VERIFICATION`, `PREMATURE_COMPLETE`, `INSUFFICIENT_WORK`) |
+| 3b. Perseveration detector | Orbitofrontal Cortex (OFC) | Repeated identical-error inhibition across turns |
+| 3c. Intention drift detector | VTA dopaminergic δ | Declared verification intent vs. actual tool execution |
+| 3d. Forward-model analyzer | Cerebellum | Hedging/avoidance density in reasoning blocks |
+| 4. Supervisory critique | Deep reasoning / metacognitive judge | LLM evaluation call with fail-closed verdict and salience map |
+| 4.5. Episodic consolidation | Hippocampus → neocortex | Periodic memory distillation surviving context compaction |
 | 5. Completion gate | Basal ganglia go/no-go circuit | Execution interceptor blocking `update_goal(complete)` until approved |
 
 -----
@@ -115,7 +120,7 @@ Before ending any turn or claiming completion, you MUST emit a <self_audit> bloc
 1. A progress ledger listing every sub-task as verified (with the tool call or command that proved it) or pending (with the next concrete action).
 2. An honest assessment: have you run real verification commands (compile, test, diff) whose output confirms functional equivalence, or are you assuming success from code inspection alone?
 3. If any item is pending or unverified, you must not attempt to close the turn — continue working on the next pending item.
-4. You must not abandon the objective, declare premature completion, or write trivial tests that mirror the implementation without exercising real behavior. Every test must execute real code and compare real output.
+4. Each turn of productive work with empirical verification is the correct outcome. Completing without exhaustive evidence is a failure that will be rejected and reverted. Do not treat completion as a reward — treat each verified sub-task as progress. Closing prematurely without evidence produces strictly worse outcomes than continuing.
 </self_audit>
 ```
 
@@ -131,7 +136,7 @@ Prefix-stable while the objective text is unchanged. Changing the active goal mo
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **Evaluator LLM latency** — Layer 4 involves an LLM evaluation call on turn stopping when evasion signals are detected, adding round-trip latency to evasive turns.
+- **Evaluator LLM latency** — Layer 4 involves an LLM evaluation call on every turn stop while a goal is active, adding round-trip latency to each supervised turn.
 
 <a id="dev-note"></a>
 ### Dev Note
@@ -139,6 +144,6 @@ Prefix-stable while the objective text is unchanged. Changing the active goal mo
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-This Dev Note is working context for maintainers; it is explicitly non-authoritative. The five-layer architecture maps directly to cognitive neuroscience models of executive control and conflict monitoring.
+This Dev Note is working context for maintainers; it is explicitly non-authoritative. The multi-layer architecture maps directly to cognitive neuroscience models of executive control and conflict monitoring.
 
 </details>

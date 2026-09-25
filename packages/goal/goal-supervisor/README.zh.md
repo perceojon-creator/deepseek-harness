@@ -1,5 +1,5 @@
 ---
-description: "具备五层验证、与神经科学对齐的元认知目标监督器。"
+description: "具备多层验证、与神经科学对齐的元认知目标监督器。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-goal-supervisor` 提供了一个五层元认知监督器，采用基于前扣带皮层（ACC）和背外侧前额叶皮层（dlPFC）建模的架构，防止模型（特别是 fast/flash 模型）过早将目标标记为完成。在允许任何目标完成之前，该监督器会依序检查工作记忆提示词、进度账本、确定性规避模式、监督 LLM 批判意见以及权威的完成门禁。当自主目标追求需要严格的实证检验而非消极自我报告时，请将其与 `dsh-goal-round-driver` 协同挂载。
+`dsh-goal-supervisor` 提供了一个多层元认知监督器，采用基于神经科学执行控制回路（ACC、dlPFC、OFC、VTA、vmPFC、小脑、海马体）建模的架构，防止模型（特别是 fast/flash 模型）过早将目标标记为完成。在允许任何目标完成之前，该监督器会依序检查工作记忆提示词、进度账本、确定性规避模式（持续错误、意图漂移、回避表述）、监督 LLM 批判意见与显著性映射、情景记忆巩固以及权威的完成门禁。当自主目标追求需要严格的实证检验而非消极自我报告时，请将其与 `dsh-goal-round-driver` 协同挂载。
 
 ## 目录
 
@@ -35,18 +35,23 @@ kind: "package-reference"
   config:
     supervisorProvider: deepseek
     supervisorModel: deepseek-chat
+    consolidationInterval: 5
 ```
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-goal-supervisor)是所有受支持字段的权威来源。
 
-### 五层验证架构
+### 多层验证架构
 
 | 层级 | 解剖学对应 | 机制 |
 |---|---|---|
-| 1. 自审提示词 | 语音回路 / 工作记忆 | 系统提示词中的动态 `<self_audit>` 段落 |
-| 2. 进度账本 | dlPFC 执行控制 | 准入轮次上的 `<progress_ledger>` 说明指令 |
-| 3. 规避检测器 | 前扣带皮层（ACC） | 确定性冲突信号检测（`NO_VERIFICATION`、`PREMATURE_COMPLETE`） |
-| 4. 监督批判 | 深度推理 / 元认知裁决者 | 具备故障闭合裁决解析的 LLM 评估调用 |
+| 1. 自审提示词 | 语音回路 / vmPFC 奖励反转 | 具备时间折扣重构的动态 `<self_audit>` 段落 |
+| 2. 进度账本 | dlPFC 执行控制 + 岛叶显著性 | 准入轮次上具备风险排序注意力映射的 `<progress_ledger>` |
+| 3a. 规避检测器 | 前扣带皮层（ACC） | 确定性冲突信号（`NO_VERIFICATION`、`PREMATURE_COMPLETE`、`INSUFFICIENT_WORK`） |
+| 3b. 持续错误检测器 | 眶额皮层（OFC） | 跨轮次重复相同错误的抑制 |
+| 3c. 意图漂移检测器 | VTA 多巴胺能 δ | 声明的验证意图与实际工具执行的对比 |
+| 3d. 前向模型分析器 | 小脑 | 推理块中的回避/含糊密度检测 |
+| 4. 监督批判 | 深度推理 / 元认知裁决者 | 具备故障闭合裁决和显著性映射的 LLM 评估调用 |
+| 4.5. 情景巩固 | 海马体 → 新皮层 | 可跨上下文压缩存续的周期性记忆蒸馏 |
 | 5. 完成门禁 | 基底神经节 go/no-go 回路 | 在获得批准前拦截阻止 `update_goal(complete)` 的执行拦截器 |
 
 -----
@@ -115,7 +120,7 @@ Before ending any turn or claiming completion, you MUST emit a <self_audit> bloc
 1. A progress ledger listing every sub-task as verified (with the tool call or command that proved it) or pending (with the next concrete action).
 2. An honest assessment: have you run real verification commands (compile, test, diff) whose output confirms functional equivalence, or are you assuming success from code inspection alone?
 3. If any item is pending or unverified, you must not attempt to close the turn — continue working on the next pending item.
-4. You must not abandon the objective, declare premature completion, or write trivial tests that mirror the implementation without exercising real behavior. Every test must execute real code and compare real output.
+4. Each turn of productive work with empirical verification is the correct outcome. Completing without exhaustive evidence is a failure that will be rejected and reverted. Do not treat completion as a reward — treat each verified sub-task as progress. Closing prematurely without evidence produces strictly worse outcomes than continuing.
 </self_audit>
 ```
 
@@ -131,7 +136,7 @@ Before ending any turn or claiming completion, you MUST emit a <self_audit> bloc
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **评估器 LLM 延迟** — 当检测到规避信号时，第 4 层会在轮次停止阶段调用 LLM 进行评估，从而给产生规避倾向的轮次引入往返延迟。
+- **评估器 LLM 延迟** — 在目标处于活跃状态时，第 4 层会在每次轮次停止阶段调用 LLM 进行评估，从而给每个受监督的轮次引入往返延迟。
 
 <a id="dev-note"></a>
 ### 开发备注
@@ -139,6 +144,6 @@ Before ending any turn or claiming completion, you MUST emit a <self_audit> bloc
 <details>
 <summary>维护者工作上下文 — 点击展开</summary>
 
-本开发备注是供维护者参考的工作上下文，明确不具备权威性。五层架构直接映射了认知神经科学中的执行控制与冲突监测模型。
+本开发备注是供维护者参考的工作上下文，明确不具备权威性。多层架构直接映射了认知神经科学中的执行控制与冲突监测模型。
 
 </details>
