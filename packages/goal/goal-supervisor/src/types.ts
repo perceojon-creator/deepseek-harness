@@ -20,3 +20,6 @@ export interface EvasionSignal {
   /** Human-readable explanation. */
   readonly description: string
 }
+
+/** Hashed identity of the error pattern in one turn, for perseveration detection. */
+export type TurnErrorSignature = string & { readonly __turnErrorSignature: true }

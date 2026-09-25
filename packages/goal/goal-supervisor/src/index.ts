@@ -14,6 +14,7 @@ import { renderLedgerInstruction } from './round-prompt-enrichment.ts'
 import { detectEvasion } from './evasion-detector.ts'
 import { evaluateWithSupervisor } from './supervisor-call.ts'
 import { CompletionGate } from './completion-gate.ts'
+import { PerseverationTracker } from './perseveration-detector.ts'
 
 export { renderSelfAuditSection } from './self-audit-prompt.ts'
 export { renderLedgerInstruction } from './round-prompt-enrichment.ts'
@@ -21,6 +22,7 @@ export { detectEvasion } from './evasion-detector.ts'
 export { renderSupervisorPrompt } from './supervisor-prompt.ts'
 export { evaluateWithSupervisor } from './supervisor-call.ts'
 export { CompletionGate } from './completion-gate.ts'
+export { PerseverationTracker, computeErrorSignature } from './perseveration-detector.ts'
 
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
@@ -41,6 +43,7 @@ export const Config: z<Config> = z.object({
 
 export function apply(ctx: Context, config: Config): void {
   const gate = new CompletionGate()
+  const perseverationTrackers = new Map<string, PerseverationTracker>()
 
   // Layer 1: Metacognitive self-audit system prompt section
   ctx.systemPrompt.section({
@@ -125,6 +128,18 @@ export function apply(ctx: Context, config: Config): void {
     // Run Layer 3 deterministic evasion analysis
     const signals = detectEvasion(events, goal, turnStartSeq)
 
+    // Check for perseveration (OFC repeated failure inhibition)
+    let tracker = perseverationTrackers.get(agent.id)
+    if (!tracker) {
+      tracker = new PerseverationTracker()
+      perseverationTrackers.set(agent.id, tracker)
+    }
+    tracker.recordTurn(events, turnStartSeq)
+    const perseverationSignal = tracker.detect()
+    if (perseverationSignal) {
+      signals.push(perseverationSignal)
+    }
+
     // Run Layer 4 supervisor LLM evaluation
     const verdict = await evaluateWithSupervisor(
       ctx,
@@ -154,5 +169,6 @@ export function apply(ctx: Context, config: Config): void {
   // Clean up agent state when agent is disposed
   ctx.on('agent/disposed', ({ agent }) => {
     gate.dispose(agent.id)
+    perseverationTrackers.delete(agent.id)
   })
 }
