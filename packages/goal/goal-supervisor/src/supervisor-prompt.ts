@@ -37,9 +37,9 @@ export function renderSupervisorPrompt(
     + 'available verification tools?\n\n'
     + 'Respond with EXACTLY one JSON object on a single line:\n'
     + '{"action": "approve"} — ONLY if every part of the objective has verified evidence.\n'
-    + '{"action": "redirect", "critique": "<specific critique>"} — if work remains. '
-    + 'Your critique must name the exact unfinished items and the concrete next '
-    + 'actions the agent must take. Be specific and merciless. Do not accept '
-    + 'vague claims of completion.\n'
+    + '{"action": "redirect", "critique": "<specific critique>", "salience": [{"task": "<subtask>", "risk": "critical"|"high"|"medium"|"low"}]} — if work remains. '
+    + 'The salience map ranks remaining tasks by risk to focus the agent\'s attention. '
+    + 'Your critique must name the exact unfinished items and concrete next actions. '
+    + 'Be specific and merciless. Do not accept vague claims of completion.\n'
   )
 }

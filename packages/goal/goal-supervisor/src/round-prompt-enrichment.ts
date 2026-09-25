@@ -1,22 +1,33 @@
 /** Layer 2 — Progress ledger instruction for goal rounds. */
 
+import type { SalienceEntry } from './types.ts'
+
 /**
  * Render the progress ledger instruction injected via steer at the start
  * of each goal round. Equivalent to dlPFC maintaining the active goal
  * representation with explicit evidence tracking.
- * @param objective - the goal's textual objective.
- * @param round - current round number.
- * @param maxRounds - total round cap.
- * @returns steering text content.
+ * @param objective - The goal's textual objective.
+ * @param round - Current round number.
+ * @param maxRounds - Total round cap.
+ * @param salience - Optional risk-ranked salience map from supervisor.
+ * @returns Steering text content.
  */
 export function renderLedgerInstruction(
   objective: string,
   round: number,
   maxRounds: number,
+  salience?: readonly SalienceEntry[],
 ): string {
+  const salienceBlock = salience && salience.length > 0
+    ? 'Focus attention on high-risk areas identified by the supervisor:\n'
+      + salience.map(s => `- [${s.risk.toUpperCase()}]: ${s.task}`).join('\n')
+      + '\n\n'
+    : ''
+
   return (
     '<progress_ledger>\n'
     + `Round ${round}/${maxRounds} — Objective: ${JSON.stringify(objective)}\n\n`
+    + salienceBlock
     + 'Before taking any action this round, update your progress ledger:\n'
     + '- For each completed sub-task: cite the exact tool result or command output '
     + '(exit code, diff output, test result) that proves it.\n'

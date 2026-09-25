@@ -5,7 +5,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { GoalView } from '@deepseek-ai/dsh-goal'
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, StreamChunk, TextBlock } from '@deepseek-ai/dsh-llm'
-import type { EvasionSignal, SupervisorVerdict } from './types.ts'
+import type { EvasionSignal, SalienceEntry, SupervisorVerdict } from './types.ts'
 import { renderSupervisorPrompt } from './supervisor-prompt.ts'
 
 /** Configuration options for the LLM supervisor provider and model. */
@@ -96,21 +96,47 @@ export async function streamToText(
  * @returns The parsed supervisor verdict.
  */
 export function parseVerdict(text: string): SupervisorVerdict {
-  const jsonMatch = text.match(/\{[^{}]+\}/)
-  if (!jsonMatch) {
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start === -1 || end === -1 || end <= start) {
     return {
       action: 'redirect',
       critique: 'Supervisor response was not parseable JSON — defaulting to redirect. Raw: ' + text.slice(0, 200),
       layer: 4,
     }
   }
+  const candidate = text.slice(start, end + 1)
   try {
-    const parsed = JSON.parse(jsonMatch[0]) as { action?: string; critique?: string }
-    if (parsed.action === 'approve') return { action: 'approve', layer: 4 }
+    const parsed: unknown = JSON.parse(candidate)
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { action: 'redirect', critique: 'Supervisor JSON was not an object.', layer: 4 }
+    }
+    const record = parsed as Record<string, unknown>
+    if (record.action === 'approve') return { action: 'approve', layer: 4 }
+
+    let salience: SalienceEntry[] | undefined
+    if (Array.isArray(record.salience)) {
+      salience = []
+      for (const item of record.salience) {
+        if (typeof item === 'object' && item !== null && 'task' in item && 'risk' in item) {
+          const task = String((item as Record<string, unknown>).task)
+          const rawRisk = (item as Record<string, unknown>).risk
+          const risk = rawRisk === 'critical' || rawRisk === 'high' || rawRisk === 'medium' || rawRisk === 'low'
+            ? rawRisk
+            : 'medium'
+          salience.push({ task, risk })
+        }
+      }
+      if (salience.length === 0) salience = undefined
+    }
+
     return {
       action: 'redirect',
-      critique: parsed.critique ?? 'Supervisor rejected completion without specific critique.',
+      critique: typeof record.critique === 'string'
+        ? record.critique
+        : 'Supervisor rejected completion without specific critique.',
       layer: 4,
+      ...(salience ? { salience } : {}),
     }
   } catch {
     return {

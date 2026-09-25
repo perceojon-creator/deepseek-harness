@@ -49,6 +49,7 @@ export function apply(ctx: Context, config: Config): void {
   const gate = new CompletionGate()
   const perseverationTrackers = new Map<string, PerseverationTracker>()
   const intentionTracker = new IntentionTracker()
+  const latestSalience = new Map<string, readonly import('./types.ts').SalienceEntry[]>()
 
   // Layer 1: Metacognitive self-audit system prompt section
   ctx.systemPrompt.section({
@@ -74,7 +75,8 @@ export function apply(ctx: Context, config: Config): void {
     if (goalMessage && 'round' in goalMessage.source) {
       const goal = ctx.goals.get(agent)
       if (goal !== undefined && goal.phase === 'active') {
-        const text = renderLedgerInstruction(goal.objective, goalMessage.source.round, goal.maxGoalRounds)
+        const salience = latestSalience.get(agent.id)
+        const text = renderLedgerInstruction(goal.objective, goalMessage.source.round, goal.maxGoalRounds, salience)
         const ledgerMsg = createUserMessage({
           content: [{ type: 'text', text }],
           source: { kind: 'plugin', plugin: 'goal-supervisor', form: 'notice', summary: 'Progress ledger requirement' },
@@ -167,6 +169,10 @@ export function apply(ctx: Context, config: Config): void {
       turnStartSeq,
     )
 
+    if (verdict.salience && verdict.salience.length > 0) {
+      latestSalience.set(agent.id, verdict.salience)
+    }
+
     if (verdict.action === 'redirect') {
       const critiqueText = verdict.critique ?? 'Supervisor redirected: ensure the task is fully completed and verified.'
       agent.steer(createUserMessage({
@@ -187,5 +193,6 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('agent/disposed', ({ agent }) => {
     gate.dispose(agent.id)
     perseverationTrackers.delete(agent.id)
+    latestSalience.delete(agent.id)
   })
 }
