@@ -27,6 +27,7 @@ export { CompletionGate } from './completion-gate.ts'
 export { PerseverationTracker, computeErrorSignature } from './perseveration-detector.ts'
 export { IntentionTracker, extractPlannedTools } from './intention-tracker.ts'
 export { analyzeReasoningQuality } from './forward-model-analyzer.ts'
+export { ConsolidationManager, parseConsolidation, renderConsolidationPrompt } from './episodic-consolidation.ts'
 
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
@@ -37,12 +38,16 @@ export interface Config {
   supervisorProvider?: string
   /** Optional model override for the supervisory LLM. */
   supervisorModel?: string
+  /** Number of goal rounds between episodic consolidation summaries (default: 5). */
+  consolidationInterval?: number
 }
 
 /** Schemastery schema for goal-supervisor configuration. */
 export const Config: z<Config> = z.object({
   supervisorProvider: z.string().description('Optional provider override for the supervisory LLM.'),
   supervisorModel: z.string().description('Optional model override for the supervisory LLM.'),
+  consolidationInterval: z.natural().min(1).default(5)
+    .description('Number of goal rounds between episodic consolidation summaries.'),
 })
 
 export function apply(ctx: Context, config: Config): void {
@@ -50,6 +55,7 @@ export function apply(ctx: Context, config: Config): void {
   const perseverationTrackers = new Map<string, PerseverationTracker>()
   const intentionTracker = new IntentionTracker()
   const latestSalience = new Map<string, readonly import('./types.ts').SalienceEntry[]>()
+  const consolidationManagers = new Map<string, import('./episodic-consolidation.ts').ConsolidationManager>()
 
   // Layer 1: Metacognitive self-audit system prompt section
   ctx.systemPrompt.section({
@@ -61,6 +67,23 @@ export function apply(ctx: Context, config: Config): void {
         const goal = ctx.goals.get(agent)
         if (goal !== undefined && goal.phase === 'active') {
           return renderSelfAuditSection(goal.objective)
+        }
+      }
+      return ''
+    },
+  })
+
+  // Layer 4.5: Episodic memory consolidation section
+  ctx.systemPrompt.section({
+    name: 'supervisor:episodic-memory',
+    order: FIRST_PARTY_SECTION_ORDER.TOOL_GOAL + 15,
+    text: () => {
+      const roots = ctx.agents.roots()
+      for (const agent of roots) {
+        const goal = ctx.goals.get(agent)
+        if (goal !== undefined && goal.phase === 'active') {
+          const mgr = consolidationManagers.get(agent.id)
+          return mgr?.getSummary() ?? ''
         }
       }
       return ''
@@ -173,6 +196,17 @@ export function apply(ctx: Context, config: Config): void {
       latestSalience.set(agent.id, verdict.salience)
     }
 
+    // Run Layer 4.5 episodic consolidation if interval reached
+    let consolidationMgr = consolidationManagers.get(agent.id)
+    if (!consolidationMgr) {
+      const { ConsolidationManager } = await import('./episodic-consolidation.ts')
+      consolidationMgr = new ConsolidationManager()
+      consolidationManagers.set(agent.id, consolidationMgr)
+    }
+    if (consolidationMgr.shouldConsolidate(goal.roundsStarted, config.consolidationInterval ?? 5)) {
+      await consolidationMgr.consolidate(ctx, agent, goal, config)
+    }
+
     if (verdict.action === 'redirect') {
       const critiqueText = verdict.critique ?? 'Supervisor redirected: ensure the task is fully completed and verified.'
       agent.steer(createUserMessage({
@@ -194,5 +228,6 @@ export function apply(ctx: Context, config: Config): void {
     gate.dispose(agent.id)
     perseverationTrackers.delete(agent.id)
     latestSalience.delete(agent.id)
+    consolidationManagers.delete(agent.id)
   })
 }
