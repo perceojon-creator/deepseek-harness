@@ -72,6 +72,10 @@ This section explains how the supervisor coordinates prompt enrichment, determin
 | [`src/index.ts`](src/index.ts) | Plugin entry, config schema, lifecycle hook wiring |
 | [`src/completion-gate.ts`](src/completion-gate.ts) | Basal ganglia go/no-go completion gate tracking approvals per turn |
 | [`src/evasion-detector.ts`](src/evasion-detector.ts) | Deterministic evasion pattern detector without LLM cost |
+| [`src/perseveration-detector.ts`](src/perseveration-detector.ts) | OFC perseveration detector tracking repeated failure patterns across turns |
+| [`src/intention-tracker.ts`](src/intention-tracker.ts) | VTA intention drift detector comparing declared plans against executed tools |
+| [`src/forward-model-analyzer.ts`](src/forward-model-analyzer.ts) | Cerebellar forward-model reasoning quality and hedging analyzer |
+| [`src/episodic-consolidation.ts`](src/episodic-consolidation.ts) | Hippocampal episodic memory consolidation manager for long-running goals |
 | [`src/self-audit-prompt.ts`](src/self-audit-prompt.ts) | Metacognitive self-audit system prompt section renderer |
 | [`src/round-prompt-enrichment.ts`](src/round-prompt-enrichment.ts) | Progress ledger instructions renderer for admitted rounds |
 | [`src/supervisor-prompt.ts`](src/supervisor-prompt.ts) | Metacognitive critique prompt renderer for the supervisor LLM |

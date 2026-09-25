@@ -72,6 +72,10 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口、配置模式、生命周期钩子编排 |
 | [`src/completion-gate.ts`](src/completion-gate.ts) | 追踪每轮批准状态的基底神经节 go/no-go 完成门禁 |
 | [`src/evasion-detector.ts`](src/evasion-detector.ts) | 无需 LLM 开销的确定性规避模式检测器 |
+| [`src/perseveration-detector.ts`](src/perseveration-detector.ts) | 跨轮次追踪重复失败模式的 OFC 持续错误检测器 |
+| [`src/intention-tracker.ts`](src/intention-tracker.ts) | 对比声明计划与执行工具的 VTA 意图漂移检测器 |
+| [`src/forward-model-analyzer.ts`](src/forward-model-analyzer.ts) | 小脑前向模型推理质量与避错分析器 |
+| [`src/episodic-consolidation.ts`](src/episodic-consolidation.ts) | 适用于长程目标的海马体情景记忆巩固管理器 |
 | [`src/self-audit-prompt.ts`](src/self-audit-prompt.ts) | 元认知自审系统提示词段落渲染器 |
 | [`src/round-prompt-enrichment.ts`](src/round-prompt-enrichment.ts) | 准入轮次进度账本指示渲染器 |
 | [`src/supervisor-prompt.ts`](src/supervisor-prompt.ts) | 供监督 LLM 使用的元认知批判提示词渲染器 |

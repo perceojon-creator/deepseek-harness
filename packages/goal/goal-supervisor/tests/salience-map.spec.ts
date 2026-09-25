@@ -9,8 +9,8 @@ describe('salience map in supervisor output', () => {
     const verdict = parseVerdict(text)
     expect(verdict.action).toBe('redirect')
     expect(verdict.salience).toHaveLength(2)
-    expect(verdict.salience?.[0].task).toBe('module B pointer arithmetic')
-    expect(verdict.salience?.[0].risk).toBe('critical')
+    expect(verdict.salience?.[0]?.task).toBe('module B pointer arithmetic')
+    expect(verdict.salience?.[0]?.risk).toBe('critical')
   })
 
   it('parseVerdict works without salience field (backward compatible)', () => {

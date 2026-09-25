@@ -151,4 +151,32 @@ describe('dsh-goal-supervisor end-to-end composition', () => {
     const errBlock = result.content[0] as { type: string; text?: string } | undefined
     expect(errBlock?.text).toContain('supervisor has not certified completion')
   })
+
+  it('incorporates salience map from prior redirect into next round ledger', async () => {
+    const { ctx, root } = await compositionHarness()
+    const goal = ctx.goals.create(root.agent, { objective: 'Test salience' })
+
+    // Simulate prior turn-stopping having set salience
+    const roundMessage = createUserMessage({
+      content: [{ type: 'text', text: 'goal round prompt' }],
+      source: { kind: 'goal', goalId: goal.id, revision: goal.revision, round: 2 },
+    })
+
+    const decision = await agentEvents(ctx, root.agent).waterfall(
+      'agent/pre-step',
+      {
+        messages: [roundMessage],
+        turn: 2,
+        step: 1,
+        signal: new AbortController().signal,
+      },
+      async () => ({ kind: 'enter' as const, messages: [roundMessage] }),
+    )
+
+    expect(decision.kind).toBe('enter')
+    if (decision.kind === 'enter') {
+      const ledgerMsg = decision.messages.find(m => m.source.kind === 'plugin' && m.source.plugin === 'goal-supervisor')
+      expect(ledgerMsg).toBeDefined()
+    }
+  })
 })

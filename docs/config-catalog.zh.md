@@ -804,10 +804,12 @@ export interface Config {
   supervisorProvider?: string
   /** Optional model override for the supervisory LLM. */
   supervisorModel?: string
+  /** Number of goal rounds between episodic consolidation summaries (default: 5). */
+  consolidationInterval?: number
 }
 ```
 
-来源：[`packages/goal/goal-supervisor/src/index.ts:29`](../packages/goal/goal-supervisor/src/index.ts)
+来源：[`packages/goal/goal-supervisor/src/index.ts:36`](../packages/goal/goal-supervisor/src/index.ts)
 
 <a id="deepseek-aidsh-headless"></a>
 
