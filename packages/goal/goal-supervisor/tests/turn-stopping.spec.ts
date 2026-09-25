@@ -46,4 +46,24 @@ describe('Turn stopping and completion gate interactions', () => {
     gate.approve(agentId)
     expect(gate.canComplete(agentId)).toBe(true)
   })
+
+  it('per-turn reset revokes prior approval so each turn requires fresh certification', () => {
+    const gate = new CompletionGate()
+    const agentId = 'agent-turn-reset'
+
+    // Turn N: supervisor approves
+    gate.approve(agentId)
+    expect(gate.canComplete(agentId)).toBe(true)
+
+    // Turn N+1 starts: gate resets
+    gate.resetTurn(agentId)
+    expect(gate.canComplete(agentId)).toBe(false)
+
+    // Without fresh approval, completion is blocked
+    expect(gate.canComplete(agentId)).toBe(false)
+
+    // Fresh approval in turn N+1
+    gate.approve(agentId)
+    expect(gate.canComplete(agentId)).toBe(true)
+  })
 })

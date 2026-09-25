@@ -63,7 +63,7 @@ export function apply(ctx: Context, config: Config): void {
     const decision = await next()
     if (decision.kind === 'reject') return decision
     const goalMessage = messages.find(m => m.source.kind === 'goal')
-    if (goalMessage && goalMessage.source.kind === 'goal') {
+    if (goalMessage && 'round' in goalMessage.source) {
       const goal = ctx.goals.get(agent)
       if (goal !== undefined && goal.phase === 'active') {
         const text = renderLedgerInstruction(goal.objective, goalMessage.source.round, goal.maxGoalRounds)
@@ -105,6 +105,9 @@ export function apply(ctx: Context, config: Config): void {
 
   // Layers 3, 4 & 5: Turn-stopping interception and metacognitive steering
   ctx.on('agent/turn-stopping', async ({ agent }) => {
+    // Reset per-turn approval so each turn requires fresh supervisor certification
+    gate.resetTurn(agent.id)
+
     const goal = ctx.goals.get(agent)
     if (goal === undefined || goal.phase !== 'active') return
 
