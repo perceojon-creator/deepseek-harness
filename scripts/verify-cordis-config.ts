@@ -10,7 +10,7 @@
  * Loader fixtures resolve from their package manifest.
  */
 
-import { globSync, readFileSync } from 'node:fs'
+import { existsSync, globSync, readFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import { Script } from 'node:vm'
 import ts from 'typescript'
@@ -61,7 +61,7 @@ if (import.meta.main) {
   const files = cordisConfigFiles(root)
 
   for (const file of files) {
-    const document = loadCordisYaml(readFileSync(resolve(root, file), 'utf8'))
+    const document = loadCordisYaml(readCordisConfigFile(resolve(root, file)))
     if (!isUnknownArray(document)) {
       errors.push(`${file}: root must be a Loader entry array`)
       continue
@@ -101,6 +101,20 @@ if (import.meta.main) {
  * @returns one violation per client package whose `./client` export and
  * `dsh.client` declaration disagree.
  */
+/**
+ * Read a Cordis configuration file, following text-file symlink pointers
+ * checked out on platforms where symbolic links are disabled.
+ */
+function readCordisConfigFile(filePath: string): string {
+  const content = readFileSync(filePath, 'utf8')
+  const trimmed = content.trim()
+  if (!trimmed.includes('\n') && (trimmed.endsWith('.yml') || trimmed.endsWith('.yaml'))) {
+    const target = resolve(dirname(filePath), trimmed)
+    if (existsSync(target)) return readFileSync(target, 'utf8')
+  }
+  return content
+}
+
 function validateClientHalvesDeclared(): string[] {
   return globSync('packages/client/*/package.json', { cwd: root }).flatMap((manifestPath) => {
     const manifest = readManifest(manifestPath) as PackageManifest & {
