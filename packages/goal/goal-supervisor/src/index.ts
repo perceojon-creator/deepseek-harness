@@ -15,6 +15,7 @@ import { detectEvasion } from './evasion-detector.ts'
 import { evaluateWithSupervisor } from './supervisor-call.ts'
 import { CompletionGate } from './completion-gate.ts'
 import { PerseverationTracker } from './perseveration-detector.ts'
+import { IntentionTracker } from './intention-tracker.ts'
 
 export { renderSelfAuditSection } from './self-audit-prompt.ts'
 export { renderLedgerInstruction } from './round-prompt-enrichment.ts'
@@ -23,6 +24,7 @@ export { renderSupervisorPrompt } from './supervisor-prompt.ts'
 export { evaluateWithSupervisor } from './supervisor-call.ts'
 export { CompletionGate } from './completion-gate.ts'
 export { PerseverationTracker, computeErrorSignature } from './perseveration-detector.ts'
+export { IntentionTracker, extractPlannedTools } from './intention-tracker.ts'
 
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
@@ -44,6 +46,7 @@ export const Config: z<Config> = z.object({
 export function apply(ctx: Context, config: Config): void {
   const gate = new CompletionGate()
   const perseverationTrackers = new Map<string, PerseverationTracker>()
+  const intentionTracker = new IntentionTracker()
 
   // Layer 1: Metacognitive self-audit system prompt section
   ctx.systemPrompt.section({
@@ -138,6 +141,12 @@ export function apply(ctx: Context, config: Config): void {
     const perseverationSignal = tracker.detect()
     if (perseverationSignal) {
       signals.push(perseverationSignal)
+    }
+
+    // Check for intention drift (VTA dopaminergic delta)
+    const driftSignal = intentionTracker.detectDrift(events, turnStartSeq)
+    if (driftSignal) {
+      signals.push(driftSignal)
     }
 
     // Run Layer 4 supervisor LLM evaluation
