@@ -22,9 +22,10 @@ export function renderSelfAuditSection(objective: string): string {
     + 'assuming success from code inspection alone?\n'
     + '3. If any item is pending or unverified, you must not attempt to close '
     + 'the turn — continue working on the next pending item.\n'
-    + '4. You must not abandon the objective, declare premature completion, or '
-    + 'write trivial tests that mirror the implementation without exercising '
-    + 'real behavior. Every test must execute real code and compare real output.\n'
+    + '4. Each turn of productive work with empirical verification is the correct outcome. '
+    + 'Completing without exhaustive evidence is a failure that will be rejected and reverted. '
+    + 'Do not treat completion as a reward — treat each verified sub-task as progress. '
+    + 'Closing prematurely without evidence produces strictly worse outcomes than continuing.\n'
     + '</self_audit>\n'
   )
 }

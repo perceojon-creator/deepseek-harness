@@ -20,4 +20,10 @@ describe('renderSelfAuditSection', () => {
     const text = renderSelfAuditSection('any objective')
     expect(text).toMatch(/cannot abandon|must not abandon|do not abandon/i)
   })
+
+  it('frames sustained work as the desired outcome, not completion', () => {
+    const text = renderSelfAuditSection('Port C++ to Rust')
+    expect(text).toMatch(/productive work.*correct outcome|each.*verified.*progress/i)
+    expect(text).toMatch(/reverted|rejected|failure/i)
+  })
 })
