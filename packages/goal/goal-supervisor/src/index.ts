@@ -16,6 +16,7 @@ import { evaluateWithSupervisor } from './supervisor-call.ts'
 import { CompletionGate } from './completion-gate.ts'
 import { PerseverationTracker } from './perseveration-detector.ts'
 import { IntentionTracker } from './intention-tracker.ts'
+import { analyzeReasoningQuality } from './forward-model-analyzer.ts'
 
 export { renderSelfAuditSection } from './self-audit-prompt.ts'
 export { renderLedgerInstruction } from './round-prompt-enrichment.ts'
@@ -25,6 +26,7 @@ export { evaluateWithSupervisor } from './supervisor-call.ts'
 export { CompletionGate } from './completion-gate.ts'
 export { PerseverationTracker, computeErrorSignature } from './perseveration-detector.ts'
 export { IntentionTracker, extractPlannedTools } from './intention-tracker.ts'
+export { analyzeReasoningQuality } from './forward-model-analyzer.ts'
 
 export const name = 'goal-supervisor'
 export const inject = ['agents', 'goals', 'llm', 'systemPrompt', 'tools']
@@ -147,6 +149,12 @@ export function apply(ctx: Context, config: Config): void {
     const driftSignal = intentionTracker.detectDrift(events, turnStartSeq)
     if (driftSignal) {
       signals.push(driftSignal)
+    }
+
+    // Check for weak reasoning (cerebellar forward-model predictive check)
+    const weakReasoningSignal = analyzeReasoningQuality(events, turnStartSeq)
+    if (weakReasoningSignal) {
+      signals.push(weakReasoningSignal)
     }
 
     // Run Layer 4 supervisor LLM evaluation
