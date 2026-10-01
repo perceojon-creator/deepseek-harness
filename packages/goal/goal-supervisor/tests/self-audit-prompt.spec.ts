@@ -21,9 +21,14 @@ describe('renderSelfAuditSection', () => {
     expect(text).toMatch(/cannot abandon|must not abandon|do not abandon/i)
   })
 
-  it('frames sustained work as the desired outcome, not completion', () => {
+  it('forbids tests that mirror the implementation', () => {
+    const text = renderSelfAuditSection('any objective')
+    expect(text).toContain('trivial tests that mirror the implementation')
+  })
+
+  it('describes the completion gate without claiming work is reverted', () => {
     const text = renderSelfAuditSection('Port C++ to Rust')
-    expect(text).toMatch(/productive work.*correct outcome|each.*verified.*progress/i)
-    expect(text).toMatch(/reverted|rejected|failure/i)
+    expect(text).toContain('update_goal completion is denied while a code change has no successful recognized verification command after it')
+    expect(text).not.toMatch(/reverted/i)
   })
 })

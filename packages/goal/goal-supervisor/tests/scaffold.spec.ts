@@ -11,7 +11,7 @@ describe('@deepseek-ai/dsh-goal-supervisor scaffolding', () => {
   })
 
   it('validates config schema', () => {
-    const parsed = goalSupervisor.Config({})
+    const parsed = goalSupervisor.Config({} as goalSupervisor.Config)
     expect(parsed).toBeDefined()
   })
 
@@ -25,7 +25,7 @@ describe('@deepseek-ai/dsh-goal-supervisor scaffolding', () => {
     const action: SupervisorAction = 'approve'
     const verdict: SupervisorVerdict = {
       action,
-      layer: 3,
+      layer: 4,
     }
     const signal: EvasionSignal = {
       code: 'TEST_SIGNAL',

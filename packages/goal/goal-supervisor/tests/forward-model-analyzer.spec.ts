@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { analyzeReasoningQuality } from '../src/forward-model-analyzer.ts'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
@@ -43,6 +44,37 @@ describe('analyzeReasoningQuality', () => {
     ]
     const signal = analyzeReasoningQuality(events, 0)
     expect(signal).toBeUndefined()
+  })
+
+  it('does not flag hedging after every verification command succeeds', () => {
+    const callId = ToolCallId('verified-call')
+    const events: SessionEvent[] = [
+      assistantMessage(1, 'This should probably work, but I will verify it with tests.'),
+      {
+        type: 'tool/call',
+        seq: 2,
+        time: 2,
+        data: { turn: 1, step: 1, callId, name: 'bash', arguments: '{"command":"pnpm run test"}' },
+      },
+      {
+        type: 'tool/result',
+        seq: 3,
+        data: {
+          turn: 1,
+          step: 1,
+          message: {
+            role: 'user',
+            content: [{
+              type: 'tool-result',
+              toolCallId: callId,
+              content: [{ type: 'text', text: '24 tests passed' }],
+              isError: false,
+            }],
+          },
+        },
+      } as unknown as SessionEvent,
+    ]
+    expect(analyzeReasoningQuality(events, 0)).toBeUndefined()
   })
 
   it('no signal when no reasoning blocks exist', () => {

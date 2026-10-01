@@ -1,7 +1,12 @@
 /** Pure types for the goal supervisor — no runtime code. */
 
-/** Supervisor's evaluation of the agent's current state. */
-export type SupervisorAction = 'approve' | 'redirect'
+/**
+ * Supervisor's evaluation of the agent's current state. `abstain` records that
+ * no usable evaluation exists (the model call failed, was cancelled or timed
+ * out, or its response was not a parseable verdict); callers treat it as
+ * neither approval nor redirect.
+ */
+export type SupervisorAction = 'approve' | 'redirect' | 'abstain'
 
 /** One sub-task with its risk/priority ranking from the supervisor. */
 export interface SalienceEntry {
@@ -11,17 +16,26 @@ export interface SalienceEntry {
   readonly risk: 'critical' | 'high' | 'medium' | 'low'
 }
 
-/** Result of one supervisor evaluation. */
-export interface SupervisorVerdict {
-  /** Whether to allow the turn to close or redirect the model. */
-  readonly action: SupervisorAction
-  /** Specific critique when action is 'redirect'. */
-  readonly critique?: string
-  /** Layer that originated this verdict (3 = deterministic, 4 = LLM). */
-  readonly layer: 3 | 4
-  /** Optional risk-ranked salience map from the supervisor. */
-  readonly salience?: readonly SalienceEntry[]
-}
+/** Result of one supervisor evaluation; the evaluator model is layer 4. */
+export type SupervisorVerdict =
+  | {
+    readonly action: 'approve'
+    readonly layer: 4
+  }
+  | {
+    readonly action: 'redirect'
+    /** Unfinished items and next actions, delivered to the agent. */
+    readonly critique: string
+    readonly layer: 4
+    /** Optional risk-ranked remaining tasks. */
+    readonly salience?: readonly SalienceEntry[]
+  }
+  | {
+    readonly action: 'abstain'
+    /** Why no evaluation is available. */
+    readonly reason: string
+    readonly layer: 4
+  }
 
 /** Evasion signal detected by Layer 3 deterministic analysis. */
 export interface EvasionSignal {

@@ -1,43 +1,55 @@
-/** Layer 3 extension — Intention drift detector (VTA dopaminergic δ). */
+/** Layer 3 extension — intention-drift heuristic: stated verification commitments versus recorded results. */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { EvasionSignal } from './types.ts'
-import { VERIFICATION_TOOLS } from './evasion-detector.ts'
+import { hasSuccessfulVerification } from './evasion-detector.ts'
+import { reasoningText } from './recorded-activity.ts'
+
+/** First-person or imperative commitment that introduces a planned action. */
+const COMMITMENT = String.raw`(?:\bI(?:['’]ll|\s+will|\s+am\s+going\s+to|['’]m\s+going\s+to|\s+need\s+to|\s+must)|\blet\s+me|\blet['’]s|\b(?:next|then|now),?(?:\s+I(?:['’]ll|\s+will))?)`
+
+/** Verification targets that a run/execute commitment must name. */
+const VERIFICATION_TARGET = String.raw`(?:tests?|specs?|test\s+suite|suite|build|typecheck|type-check|lint(?:er)?|compiler|vitest|jest|pytest|tsc|cargo\s+test|go\s+test|npm\s+test|pnpm\s+test|make\s+check)`
 
 /**
- * Verification-intent patterns in natural language reasoning.
- * Matches phrases like "run tests", "compile", "cargo test", "execute", "verify".
+ * Verification commitments in natural-language reasoning: a commitment phrase
+ * ("I will", "let me", "next,") immediately followed by a verification verb
+ * and target, such as "I will run the tests" or "let me compile".
  */
 export const VERIFICATION_INTENT_PATTERNS: readonly RegExp[] = [
-  /\b(?:run|execute|invoke)\s+(?:the\s+)?(?:test|spec|suite|build|cargo\s+test|npm\s+test|pnpm\s+test|make\s+check)/i,
-  /\bpnpm\s+vitest\b/i,
-  /\b(?:compile|build)\b/i,
-  /\b(?:verify|validate|check)\s+(?:the\s+)?(?:output|result|binary|build|compilation)/i,
-  /\bpwsh\b/i,
-  /\brun_code\b/i,
-  /\bbash\b/i,
-  /\bcargo\s+test\b/i,
+  new RegExp(String.raw`${COMMITMENT}\s+(?:re-?run|run|execute|invoke)\s+(?:the\s+|all\s+|a\s+)?(?:[\w-]+\s+)?${VERIFICATION_TARGET}\b`, 'gi'),
+  new RegExp(String.raw`${COMMITMENT}\s+(?:compile|build|typecheck|test)\b`, 'gi'),
+  new RegExp(String.raw`${COMMITMENT}\s+(?:verify|validate)\s+(?:the\s+)?(?:output|result|binary|build|compilation)`, 'gi'),
 ]
 
+/** Negation inside the clause before a commitment cancels it ("I won't…", "no need to…"). */
+const CLAUSE_NEGATION = /\b(?:not|never|no|without|skip(?:ping)?|instead\s+of)\b|n['’]t\b/i
+
+function negatedInClause(text: string, matchIndex: number, matchText: string): boolean {
+  const before = text.slice(0, matchIndex)
+  const clauseStart = Math.max(...['.', '!', '?', ';', '\n'].map(mark => before.lastIndexOf(mark))) + 1
+  return CLAUSE_NEGATION.test(text.slice(clauseStart, matchIndex) + ' ' + matchText)
+}
+
 /**
- * Extract planned verification tool usage from reasoning text.
+ * Extract verification commitments from reasoning text, ignoring commitments
+ * negated in their own clause.
  * @param reasoningText - The model's reasoning/thinking content.
- * @returns Tool names or verification actions the model declared it would perform.
+ * @returns Distinct matched commitment phrases.
  */
 export function extractPlannedTools(reasoningText: string): string[] {
   const found: string[] = []
   for (const pattern of VERIFICATION_INTENT_PATTERNS) {
-    if (pattern.test(reasoningText)) {
-      const match = reasoningText.match(pattern)
-      if (match) found.push(match[0])
+    for (const match of reasoningText.matchAll(pattern)) {
+      if (!negatedInClause(reasoningText, match.index, match[0])) found.push(match[0])
     }
   }
   return [...new Set(found)]
 }
 
 /**
- * Track intention declarations in reasoning blocks and compare
- * against actual tool execution within the same turn.
+ * Compare verification commitments stated in the current turn's reasoning
+ * blocks with the turn's recorded verification results.
  */
 export class IntentionTracker {
   /**
@@ -52,43 +64,11 @@ export class IntentionTracker {
     turnStartSeq: number,
   ): EvasionSignal | undefined {
     const turnEvents = events.filter(e => e.seq > turnStartSeq)
-
-    // Extract reasoning text from assistant/message events
-    const reasoningTexts: string[] = []
-    for (const event of turnEvents) {
-      if (event.type !== 'assistant/message') continue
-      const data = event.data as {
-        message: { content: readonly { type: string; text?: string }[] }
-      }
-      for (const block of data.message.content) {
-        if (block.type === 'reasoning' && block.text) {
-          reasoningTexts.push(block.text)
-        }
-      }
+    const plannedVerification = extractPlannedTools(reasoningText(turnEvents))
+    if (plannedVerification.length === 0 || hasSuccessfulVerification(turnEvents)) return undefined
+    return {
+      code: 'INTENTION_DRIFT',
+      description: `The model's reasoning promised verification (${plannedVerification.slice(0, 3).join(', ')}) but no successful verification command result was recorded.`,
     }
-
-    if (reasoningTexts.length === 0) return undefined
-
-    const fullReasoning = reasoningTexts.join(' ')
-    const plannedVerification = extractPlannedTools(fullReasoning)
-
-    // No verification intent declared — no drift possible
-    if (plannedVerification.length === 0) return undefined
-
-    // Check if any verification tool was actually executed
-    const executedTools = turnEvents
-      .filter((e): e is Extract<SessionEvent, { type: 'tool/call' }> => e.type === 'tool/call')
-      .map(e => e.data.name)
-
-    const hasVerification = executedTools.some(name => VERIFICATION_TOOLS.has(name))
-
-    if (!hasVerification) {
-      return {
-        code: 'INTENTION_DRIFT',
-        description: `The model's reasoning promised verification (${plannedVerification.slice(0, 3).join(', ')}) but no verification tool (pwsh, bash, run_code) was executed. Declared intentions diverged from actual actions.`,
-      }
-    }
-
-    return undefined
   }
 }

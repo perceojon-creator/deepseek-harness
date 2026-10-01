@@ -6,18 +6,17 @@ import { renderLedgerInstruction } from '../src/round-prompt-enrichment.ts'
 describe('salience map in supervisor output', () => {
   it('parseVerdict extracts salience entries from supervisor JSON', () => {
     const text = '{"action": "redirect", "critique": "Module B untested", "salience": [{"task": "module B pointer arithmetic", "risk": "critical"}, {"task": "module A string handling", "risk": "low"}]}'
-    const verdict = parseVerdict(text)
-    expect(verdict.action).toBe('redirect')
-    expect(verdict.salience).toHaveLength(2)
-    expect(verdict.salience?.[0]?.task).toBe('module B pointer arithmetic')
-    expect(verdict.salience?.[0]?.risk).toBe('critical')
+    expect(parseVerdict(text)).toMatchObject({
+      action: 'redirect',
+      salience: [{ task: 'module B pointer arithmetic', risk: 'critical' }, { task: 'module A string handling', risk: 'low' }],
+    })
   })
 
   it('parseVerdict works without salience field (backward compatible)', () => {
     const text = '{"action": "approve"}'
     const verdict = parseVerdict(text)
     expect(verdict.action).toBe('approve')
-    expect(verdict.salience).toBeUndefined()
+    expect('salience' in verdict).toBe(false)
   })
 
   it('supervisor prompt requests salience output', () => {

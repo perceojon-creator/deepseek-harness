@@ -804,12 +804,20 @@ export interface Config {
   supervisorProvider?: string
   /** Optional model override for the supervisory LLM. */
   supervisorModel?: string
-  /** Number of goal rounds between episodic consolidation summaries (default: 5). */
-  consolidationInterval?: number
+  /** Number of goal rounds between episodic consolidation summaries. */
+  consolidationInterval: number
+  /** Maximum characters of session activity sent to each supervisor request. */
+  sessionSummaryMaxChars: number
+  /** Milliseconds one supervisor or consolidation model request may run before it is aborted. */
+  supervisorTimeoutMs: number
+  /** Maximum supervisor steers in one turn of one goal revision before the turn is allowed to end. */
+  maxConsecutiveRedirects: number
+  /** Tool names whose calls count as code changes that require verification before the turn ends. */
+  codeChangeTools: string[]
 }
 ```
 
-来源：[`packages/goal/goal-supervisor/src/index.ts:36`](../packages/goal/goal-supervisor/src/index.ts)
+来源：[`packages/goal/goal-supervisor/src/index.ts:42`](../packages/goal/goal-supervisor/src/index.ts)
 
 <a id="deepseek-aidsh-headless"></a>
 
@@ -1490,6 +1498,8 @@ export interface StdioConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Raw server tool names never registered (e.g. ones duplicating native harness tools). */
+  excludeTools: string[]
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
   reconnect?: ReconnectConfig
 }
@@ -1512,6 +1522,8 @@ export interface StreamableHttpConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Raw server tool names never registered (e.g. ones duplicating native harness tools). */
+  excludeTools: string[]
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
   reconnect?: ReconnectConfig
 }
@@ -1529,7 +1541,7 @@ export interface ReconnectConfig {
 }
 ```
 
-来源：[`packages/mcp/mcp-client/src/index.ts:98`](../packages/mcp/mcp-client/src/index.ts)
+来源：[`packages/mcp/mcp-client/src/index.ts:102`](../packages/mcp/mcp-client/src/index.ts)
 
 <a id="deepseek-aidsh-message-feedback"></a>
 

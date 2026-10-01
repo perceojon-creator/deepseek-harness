@@ -1,4 +1,4 @@
-# Agent Note: Neuroscience-aligned metacognitive goal supervisor
+# Agent Note: Goal supervisor completion review
 
 Status: implemented
 
@@ -6,38 +6,39 @@ English | [中文](2026-08-26-neuroscience-goal-supervisor.zh.md)
 
 ## Problem
 
-Fast inference ("flash") models exhibit acute failure modes when pursuing long-running goals across autonomous continuation rounds: they lack deep, sustained chain-of-thought planning, drift away from high-level objectives as context accumulates, and prematurely declare victory by fabricating trivial or tautological tests without running empirical functional validation.
-
-Previous goal architecture left completion verification deferred: `dsh-tool-goal` accepted `update_goal(complete)` based solely on the model's self-certification. The model acted as both executor and judge. An external evaluator operating as an isolated secondary agent would break the conversational workspace, while inserting criticism as an external user role creates compliance theater rather than genuine internal metacognitive regulation.
+The goal tool accepts a model-facing request to complete an active goal. A model can report progress without running a meaningful check, so completion review needs recorded tool results and an independent evaluator decision.
 
 ## Decision
 
-`@deepseek-ai/dsh-goal-supervisor` in `packages/goal/goal-supervisor/` implements a five-layer metacognitive supervisor inspired by the anterior cingulate cortex (ACC) and dorsolateral prefrontal cortex (dlPFC) executive control circuits:
+`@deepseek-ai/dsh-goal-supervisor` combines model instructions, event heuristics, an LLM evaluator, episodic summaries, and a model-facing completion check. Neuroscience terms in module names are inspiration only: each layer is a prompt, a regex or event-pattern heuristic, or a model call.
 
-1. **Layer 1 — Metacognitive self-audit prompt section (`supervisor:self-audit`):** Dynamically registered at `FIRST_PARTY_SECTION_ORDER.TOOL_GOAL + 10` when a goal is active. Mandates that the model emit a structured `<self_audit>` block before concluding any turn or claiming completion.
-2. **Layer 2 — Progress ledger enrichment:** Intercepts `agent/pre-step` when a goal round is admitted and prepends a `<progress_ledger>` requirement demanding verified tool output citations for every sub-task.
-3. **Layer 3 — Deterministic evasion detector:** Pure heuristic analysis of session events without LLM overhead. Detects `NO_VERIFICATION` (mutation calls without compilation or test execution), `PREMATURE_COMPLETE`, and `INSUFFICIENT_WORK`.
-4. **Layer 4 — Cascading LLM supervisor call:** When Layer 3 fires or the agent attempts to conclude a turn with an active goal, evaluates the recent session context and reasoning blocks. Cascades from configured provider/model (Anthropic Claude Sonnet 4.5 by default) to the session's active model. Fails closed (redirect on evaluation error).
-5. **Layer 5 — Basal ganglia completion gate:** Intercepts `agent/turn-stopping` to steer with critique notices (`agent.steer`) when the supervisor redirects, preventing turn closure. Blocks `update_goal(complete)` via `tools/post-execute` until the supervisor explicitly approves the turn.
+1. **Self-audit and progress ledger:** `supervisor:self-audit` and admitted-round ledger messages ask the model to report sub-tasks and evidence. They are prompt instructions; the package does not parse or enforce the requested blocks.
+2. **Event heuristics:** `detectEvasion`, `PerseverationTracker`, `IntentionTracker`, and `analyzeReasoningQuality` inspect the current turn's reasoning text, tool arguments, and paired tool results. Verification recognizes `bash` and `pwsh` commands that run known test, build, typecheck, or lint programs; each recognized verification call must have a result that is not an error and does not end with a failing exit, signal, or timeout marker. Intention drift matches first-person commitment phrases and ignores a commitment negated in its own clause; the hedging check counts phrases. These checks do not determine whether a command adequately tests the goal.
+3. **Supervisor evaluation:** `agent/turn-stopping` evaluates the current turn for each active goal, and `tools/pre-execute` evaluates a completion request once every recorded code change has a successful verification after it. The evaluator receives recorded tool calls, result text, and assistant reasoning within a configured character limit. `goal-supervisor/llm-request` and `goal-supervisor/llm-result` record the complete auxiliary request and response without adding them to derived conversation history. It uses the configured provider/model when both are valid, otherwise the active agent provider/model. A failed, timed-out, cancelled, or unparseable evaluation is `abstain`, never `redirect`. Each request carries the caller's turn or tool-call signal fused with a `supervisorTimeoutMs` timeout.
+4. **Episodic consolidation:** The manager combines the prior summary with activity since the previous successful consolidation. It holds the summary in process memory, so it survives context compaction but is rebuilt from session events at the next configured interval after process restart.
+5. **Completion check:** `tools/pre-execute` checks the current active goal ID and revision, requires successful recognized verification in that turn, and asks the evaluator to review the request before allowing model-facing `update_goal(complete)`. `redirect` denies; `abstain` allows with a logged warning (fail-open) because the deterministic verification requirement already holds, unless the call was cancelled. No approval is cached, so an approval cannot outlive its turn or revision. The check does not intercept direct calls to the goal service.
+6. **Bounded steering:** At turn stop the supervisor steers on `redirect`, or when the turn called a configured code-change tool or attempted completion without successful verification. Turns without either, such as research or documentation turns, are not steered for missing verification. At most `maxConsecutiveRedirects` (default 3) steers occur per goal revision per turn; once spent, the supervisor logs a warning, skips the evaluator, and lets the turn end, and the goal round cap bounds further rounds.
+7. **Scoped state:** Prompt sections render for the agent in the assembly context. Salience, consolidation, and steer-budget state is keyed by agent and bound to one goal ID and revision; approval clears salience, and agent disposal drops all state.
 
 ## Testing
 
-Unit and composition coverage verify all five layers: scaffold exports and configuration schemas, dynamic system prompt section injection on goal creation, progress ledger prepending on admitted goal rounds, deterministic evasion detection heuristics, LLM supervisor prompt assembly and fail-closed verdict parsing, turn-stopping redirection and completion gate blocking/approval. Full test suite in `packages/goal/` executes 164 passing tests across 16 test files.
+Unit tests cover the heuristics, verdict parsing, and consolidation retry. Composition tests load the plugin with the goal, tool, and system-prompt services and drive turns through its listeners: denied completion leaves `goal.phase` active, the steer budget stops after N steers, evaluator failure and unparseable output do not steer, a timed-out request aborts, repeated non-zero `bash` exits across three turns produce `PERSEVERATION`, a negated commitment produces no `INTENTION_DRIFT`, and salience from a redirect appears in the next round ledger.
 
 ## Alternatives considered
 
-- **Two-agent worker/reviewer barrier** — rejected because it isolates context into fragmented subagents, increases latency and token duplication, and destroys the unified conversational workspace.
-- **External user-role critique injection** — rejected because an external voice creates compliance behavior rather than self-regulatory metacognition.
-- **Purely deterministic verification gates** — rejected because mechanical checks alone cannot evaluate nuanced, non-binary completion criteria.
+- **Separate worker and reviewer agents** — rejected because they split the active conversation context and add model calls.
+- **Critique as a synthetic user message** — rejected because an external message changes the conversation instead of gating the completion tool.
+- **Command output as proof of semantic correctness** — rejected because successful process exit does not establish that checks cover the goal.
 
 ## Consequences
 
-- Flash models cannot prematurely complete goals or close rounds without empirical verification.
-- Completion authority is stripped from model self-assessment and gated by the supervisor.
-- Metacognitive regulation operates continuously within the same session history without extra subagent overhead.
-- Model selection cascades seamlessly from dedicated high-reasoning models to session defaults.
+- Completion through the model-facing goal tool requires a successful recognized verification after the last recorded code change (none is needed when no code changed) and no evaluator `redirect` for that request.
+- Prompt instructions and command recognition remain heuristic; neither guarantees semantic completeness.
+- The evaluator runs at every turn stop with an active goal until the steer budget is spent, adding an LLM round trip bounded by `supervisorTimeoutMs`.
+- An unavailable evaluator does not block verified completion.
+- Episodic summaries are process-local and are reconstructed after restart from durable session events.
 
 ## Known limitations and deferred work
 
-- Requires a live LLM adapter when Layer 4 is invoked.
-- Multi-repo cross-boundary verification pipelines remain an application responsibility.
+- Cross-repository verification commands and goal-specific validation remain application responsibilities.
+- The completion check covers `update_goal` tool execution, not direct goal-service callers.

@@ -1,69 +1,135 @@
-import { describe, expect, it, vi } from 'vitest'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { CompletionGate } from '../src/completion-gate.ts'
+import { describe, expect, it } from 'vitest'
+import { fail, hangUntilAbort, respond, steerTexts, supervisorHarness } from './support/harness.ts'
 
-describe('Turn stopping and completion gate interactions', () => {
-  it('steers the agent when supervisor redirects at turn-stopping', async () => {
-    interface TestSteeredMessage {
-      readonly content: readonly { readonly type: string; readonly text: string }[]
-      readonly source: { readonly kind: string; readonly plugin: string }
-    }
-    const steeredMessages: TestSteeredMessage[] = []
-    const fakeAgent = {
-      id: 'agent-test',
-      steer: vi.fn((msg: TestSteeredMessage) => {
-        steeredMessages.push(msg)
-      }),
-      session: {
-        events: [
-          { type: 'turn/start', seq: 1 },
-          { type: 'tool/call', seq: 2, data: { callId: ToolCallId('c1'), name: 'write', arguments: '{}' } },
-        ],
-      },
-    }
+const APPROVE = respond('{"action":"approve"}')
+const REDIRECT = respond('{"action":"redirect","critique":"Review the remaining API behavior."}')
 
-    const gate = new CompletionGate()
-    expect(gate.canComplete(fakeAgent.id)).toBe(false)
+describe('turn-stopping steering', () => {
+  it('steers with the evaluator critique on redirect', async () => {
+    const h = await supervisorHarness(REDIRECT)
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Finish the API' })
 
-    // Simulate steering when redirect occurs
-    fakeAgent.steer({
-      content: [{ type: 'text', text: '[Metacognitive Supervisor]: You did not run cargo test.' }],
-      source: { kind: 'plugin', plugin: 'goal-supervisor' },
-    })
+    await h.stopTurn()
 
-    expect(fakeAgent.steer).toHaveBeenCalledTimes(1)
-    const steeredMsg = steeredMessages[0]
-    expect(steeredMsg).toBeDefined()
-    expect(steeredMsg?.content[0]?.text).toContain('cargo test')
-    expect(gate.canComplete(fakeAgent.id)).toBe(false)
+    expect(steerTexts(h.root)).toEqual(['[Metacognitive Supervisor]: Review the remaining API behavior.'])
   })
 
-  it('approves the completion gate when supervisor approves at turn-stopping', () => {
-    const gate = new CompletionGate()
-    const agentId = 'agent-test-2'
+  it('stops steering after the configured redirect budget and lets the turn end', async () => {
+    const h = await supervisorHarness(REDIRECT, { maxConsecutiveRedirects: 2 })
+    h.openTurn()
+    const goal = h.ctx.goals.create(h.root.agent, { objective: 'Never satisfied' })
 
-    expect(gate.canComplete(agentId)).toBe(false)
-    gate.approve(agentId)
-    expect(gate.canComplete(agentId)).toBe(true)
+    for (let attempt = 0; attempt < 5; attempt++) await h.stopTurn()
+
+    expect(h.root.steers).toHaveLength(2)
+    expect(h.requests).toHaveLength(2)
+    expect(h.warnings().some(text => text.includes('redirect budget of 2 exhausted'))).toBe(true)
+    expect(h.ctx.goals.get(h.root.agent)).toMatchObject({ id: goal.id, phase: 'active' })
+
+    h.openTurn()
+    await h.stopTurn()
+    expect(h.root.steers).toHaveLength(3)
   })
 
-  it('per-turn reset revokes prior approval so each turn requires fresh certification', () => {
-    const gate = new CompletionGate()
-    const agentId = 'agent-turn-reset'
+  it('applies the default budget of three steers per turn', async () => {
+    const h = await supervisorHarness(REDIRECT)
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Never satisfied' })
+    for (let attempt = 0; attempt < 6; attempt++) await h.stopTurn()
+    expect(h.root.steers).toHaveLength(3)
+  })
 
-    // Turn N: supervisor approves
-    gate.approve(agentId)
-    expect(gate.canComplete(agentId)).toBe(true)
+  it('does not steer when the evaluator call fails', async () => {
+    const h = await supervisorHarness(fail('rate limited'))
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Research the API surface' })
+    h.recordTool('read', { path: 'README.md' }, 'contents')
 
-    // Turn N+1 starts: gate resets
-    gate.resetTurn(agentId)
-    expect(gate.canComplete(agentId)).toBe(false)
+    await h.stopTurn()
 
-    // Without fresh approval, completion is blocked
-    expect(gate.canComplete(agentId)).toBe(false)
+    expect(h.root.steers).toHaveLength(0)
+    expect(h.warnings().some(text => text.includes('abstaining'))).toBe(true)
+  })
 
-    // Fresh approval in turn N+1
-    gate.approve(agentId)
-    expect(gate.canComplete(agentId)).toBe(true)
+  it('does not steer when the evaluator response is not a parseable verdict', async () => {
+    const h = await supervisorHarness(respond('Looks fine to me.'))
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Summarize the design' })
+
+    await h.stopTurn()
+
+    expect(h.root.steers).toHaveLength(0)
+  })
+
+  it('does not require shell verification for a turn without code changes', async () => {
+    const h = await supervisorHarness(APPROVE)
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Write a research summary' })
+    h.recordTool('read', { path: 'docs/architecture.md' }, 'architecture')
+
+    await h.stopTurn()
+
+    expect(h.root.steers).toHaveLength(0)
+  })
+
+  it('steers for verification after code changes even when the evaluator approves', async () => {
+    const h = await supervisorHarness(APPROVE)
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Fix the parser' })
+    h.recordTool('edit', { path: 'src/parser.ts' }, 'edited')
+
+    await h.stopTurn()
+    expect(steerTexts(h.root)[0]).toContain('changed code without a successful recorded verification command after the last change')
+
+    h.recordTool('bash', { command: 'pnpm vitest run' }, 'all passed')
+    await h.stopTurn()
+    expect(h.root.steers).toHaveLength(1)
+  })
+
+  it('does not steer once the turn signal is aborted', async () => {
+    const h = await supervisorHarness(REDIRECT)
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Cancelled work' })
+    const controller = new AbortController()
+    controller.abort()
+
+    await h.stopTurn(h.root, controller.signal)
+
+    expect(h.root.steers).toHaveLength(0)
+    expect(h.requests[0]?.signal?.aborted).toBe(true)
+  })
+
+  it('aborts a hung evaluator request after the configured timeout', async () => {
+    const h = await supervisorHarness(hangUntilAbort(), { supervisorTimeoutMs: 1_000 })
+    h.openTurn()
+    h.ctx.goals.create(h.root.agent, { objective: 'Slow provider' })
+
+    await h.stopTurn()
+
+    expect(h.root.steers).toHaveLength(0)
+    expect(h.requests[0]?.signal?.aborted).toBe(true)
+  })
+
+  it('does nothing without an active goal', async () => {
+    const h = await supervisorHarness(REDIRECT)
+    h.openTurn()
+    await h.stopTurn()
+    expect(h.requests).toHaveLength(0)
+    expect(h.root.steers).toHaveLength(0)
+  })
+
+  it('starts a new budget when the goal revision changes within the turn', async () => {
+    const h = await supervisorHarness(REDIRECT, { maxConsecutiveRedirects: 1 })
+    h.openTurn()
+    const goal = h.ctx.goals.create(h.root.agent, { objective: 'Original' })
+    await h.stopTurn()
+    await h.stopTurn()
+    expect(h.root.steers).toHaveLength(1)
+
+    h.ctx.goals.edit(h.root.agent, goal, { objective: 'Edited' })
+    await h.stopTurn()
+
+    expect(h.root.steers).toHaveLength(2)
   })
 })

@@ -79,6 +79,10 @@ describe('computeErrorSignature', () => {
     expect(sigA).toBe(sigB)
   })
 
+  it('names a failed result without a recorded call as unknown', () => {
+    expect(computeErrorSignature([toolResultEvent(2, 'orphan', 'boom')], 0)).toBe('unknown:EXEC_FAILED:boom')
+  })
+
   it('produces different signatures for different errors', () => {
     const eventsA: SessionEvent[] = [
       toolCallEvent('pwsh', 1, 'c1'),
@@ -99,9 +103,9 @@ describe('PerseverationTracker', () => {
       toolCallEvent('pwsh', 1, 'c1'),
       toolResultEvent(2, 'c1', 'error: cannot find module X'),
     ]
-    tracker.recordTurn(events, 0)
+    tracker.recordTurn(events, 0, 1)
     expect(tracker.detect()).toBeUndefined()
-    tracker.recordTurn(events, 0)
+    tracker.recordTurn(events, 0, 2)
     expect(tracker.detect()).toBeUndefined()
   })
 
@@ -111,9 +115,9 @@ describe('PerseverationTracker', () => {
       toolCallEvent('pwsh', 1, 'c1'),
       toolResultEvent(2, 'c1', 'error: cannot find module X'),
     ]
-    tracker.recordTurn(events, 0)
-    tracker.recordTurn(events, 0)
-    tracker.recordTurn(events, 0)
+    tracker.recordTurn(events, 0, 1)
+    tracker.recordTurn(events, 0, 2)
+    tracker.recordTurn(events, 0, 3)
     const signal = tracker.detect()
     expect(signal).toBeDefined()
     expect(signal?.code).toBe('PERSEVERATION')
@@ -131,9 +135,9 @@ describe('PerseverationTracker', () => {
       toolCallEvent('pwsh', 3, 'c2'),
       toolResultEvent(4, 'c2', 'error B'),
     ]
-    tracker.recordTurn(eventsA, 0)
-    tracker.recordTurn(eventsA, 0)
-    tracker.recordTurn(eventsB, 0)
+    tracker.recordTurn(eventsA, 0, 1)
+    tracker.recordTurn(eventsA, 0, 2)
+    tracker.recordTurn(eventsB, 0, 3)
     expect(tracker.detect()).toBeUndefined()
   })
 
@@ -147,9 +151,9 @@ describe('PerseverationTracker', () => {
       toolCallEvent('pwsh', 3, 'c2'),
       successResultEvent(4, 'c2'),
     ]
-    tracker.recordTurn(errorEvents, 0)
-    tracker.recordTurn(errorEvents, 0)
-    tracker.recordTurn(okEvents, 0)
+    tracker.recordTurn(errorEvents, 0, 1)
+    tracker.recordTurn(errorEvents, 0, 2)
+    tracker.recordTurn(okEvents, 0, 3)
     expect(tracker.detect()).toBeUndefined()
   })
 
@@ -159,10 +163,54 @@ describe('PerseverationTracker', () => {
       toolCallEvent('pwsh', 1, 'c1'),
       toolResultEvent(2, 'c1', 'error A'),
     ]
-    tracker.recordTurn(events, 0)
-    tracker.recordTurn(events, 0)
-    tracker.recordTurn(events, 0)
+    tracker.recordTurn(events, 0, 1)
+    tracker.recordTurn(events, 0, 2)
+    tracker.recordTurn(events, 0, 3)
     tracker.reset()
     expect(tracker.detect()).toBeUndefined()
+  })
+
+  it('replaces repeated recordings of one turn instead of counting them', () => {
+    const tracker = new PerseverationTracker()
+    const events: SessionEvent[] = [
+      toolCallEvent('pwsh', 1, 'c1'),
+      toolResultEvent(2, 'c1', 'error A'),
+    ]
+    tracker.recordTurn(events, 0, 1)
+    tracker.recordTurn(events, 0, 1)
+    tracker.recordTurn(events, 0, 1)
+    expect(tracker.detect()).toBeUndefined()
+    tracker.recordTurn(events, 0, 2)
+    tracker.recordTurn(events, 0, 3)
+    expect(tracker.detect()?.code).toBe('PERSEVERATION')
+  })
+
+  it('treats a non-zero exit-code marker on a non-error result as a failure', () => {
+    const tracker = new PerseverationTracker()
+    const exitEvents: SessionEvent[] = [
+      toolCallEvent('bash', 1, 'c1'),
+      {
+        type: 'tool/result',
+        seq: 2,
+        data: {
+          turn: 1,
+          step: 1,
+          message: {
+            role: 'user',
+            content: [{
+              type: 'tool-result',
+              toolCallId: ToolCallId('c1'),
+              content: [{ type: 'text', text: 'FAIL src/a.spec.ts\n[exit code: 1]' }],
+              isError: false,
+            }],
+          },
+        },
+      } as unknown as SessionEvent,
+    ]
+    expect(computeErrorSignature(exitEvents, 0)).toContain('bash:EXIT_ERROR')
+    tracker.recordTurn(exitEvents, 0, 1)
+    tracker.recordTurn(exitEvents, 0, 2)
+    tracker.recordTurn(exitEvents, 0, 3)
+    expect(tracker.detect()?.code).toBe('PERSEVERATION')
   })
 })

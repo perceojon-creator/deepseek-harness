@@ -1,9 +1,14 @@
-/** Layer 3 extension — Cerebellar forward-model reasoning analysis. */
+/**
+ * Layer 3 extension — hedging-phrase heuristic over reasoning text. Named after
+ * the cerebellar forward-model idea; it counts regex matches and predicts nothing.
+ */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { hasSuccessfulVerification } from './evasion-detector.ts'
+import { reasoningText } from './recorded-activity.ts'
 import type { EvasionSignal } from './types.ts'
 
-/** Hedging patterns that predict low-quality work when they co-occur. */
+/** Hedging and verification-avoidance phrases counted by {@link analyzeReasoningQuality}. */
 export const HEDGING_PATTERNS: readonly RegExp[] = [
   /\bshould(?:\s+(?:be|work|probably))\b/i,
   /\bprobably\s+(?:fine|work|enough|correct|ok)\b/i,
@@ -20,8 +25,8 @@ export const HEDGING_PATTERNS: readonly RegExp[] = [
 export const MIN_HEDGING_DENSITY = 2
 
 /**
- * Analyze the model's reasoning blocks for hedging and verification-avoidance
- * patterns that predict low-quality actions.
+ * Count distinct hedging and verification-avoidance phrases in the current
+ * turn's reasoning blocks when the turn has no successful verification result.
  * @param events - Session events from the current turn.
  * @param turnStartSeq - Sequence number of the turn start.
  * @returns The evasion signal if weak reasoning is detected, undefined otherwise.
@@ -31,39 +36,21 @@ export function analyzeReasoningQuality(
   turnStartSeq: number,
 ): EvasionSignal | undefined {
   const turnEvents = events.filter(e => e.seq > turnStartSeq)
+  if (hasSuccessfulVerification(turnEvents)) return undefined
 
-  const reasoningTexts: string[] = []
-  for (const event of turnEvents) {
-    if (event.type !== 'assistant/message') continue
-    const data = event.data as {
-      message: { content: readonly { type: string; text?: string }[] }
-    }
-    for (const block of data.message.content) {
-      if (block.type === 'reasoning' && block.text) {
-        reasoningTexts.push(block.text)
-      }
-    }
-  }
-
-  if (reasoningTexts.length === 0) return undefined
-
-  const fullReasoning = reasoningTexts.join(' ')
-  let hedgingCount = 0
+  const fullReasoning = reasoningText(turnEvents)
   const matchedPatterns: string[] = []
-
   for (const pattern of HEDGING_PATTERNS) {
-    if (pattern.test(fullReasoning)) {
-      hedgingCount++
-      const match = fullReasoning.match(pattern)
-      if (match) matchedPatterns.push(match[0])
-    }
+    const match = pattern.exec(fullReasoning)
+    if (match) matchedPatterns.push(match[0])
   }
+  const hedgingCount = matchedPatterns.length
 
   if (hedgingCount >= MIN_HEDGING_DENSITY) {
     return {
       code: 'WEAK_REASONING',
       description: `Reasoning contains ${hedgingCount} hedging/avoidance indicators (${matchedPatterns.slice(0, 3).join('; ')}). `
-        + 'This predicts unverified work — run concrete verification before proceeding.',
+        + 'No successful verification result is recorded in this turn — run concrete verification before proceeding.',
     }
   }
 
