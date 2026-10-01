@@ -88,20 +88,6 @@ if (import.meta.main) {
 }
 
 /**
- * A browser plugin must declare the browser half it ships.
- *
- * The browser roster is discovered by scanning composed packages for a
- * `dsh.client` block, and the node half of a surface plugin is an empty
- * `apply`. A `packages/client` package that exports `./client` without that
- * block therefore composes, activates, and contributes nothing — its bundle is
- * never served and no error is raised anywhere. The mismatch is invisible in
- * the composition file, so it is checked against the manifests instead. Only
- * this group is checked: a Host package's `./client` export is the typed wire
- * face its browser consumers import, not a plugin the roster serves.
- * @returns one violation per client package whose `./client` export and
- * `dsh.client` declaration disagree.
- */
-/**
  * Read a Cordis configuration file, following text-file symlink pointers
  * checked out on platforms where symbolic links are disabled.
  */
@@ -115,6 +101,20 @@ function readCordisConfigFile(filePath: string): string {
   return content
 }
 
+/**
+ * A browser plugin must declare the browser half it ships.
+ *
+ * The browser roster is discovered by scanning composed packages for a
+ * `dsh.client` block, and the node half of a surface plugin is an empty
+ * `apply`. A `packages/client` package that exports `./client` without that
+ * block therefore composes, activates, and contributes nothing — its bundle is
+ * never served and no error is raised anywhere. The mismatch is invisible in
+ * the composition file, so it is checked against the manifests instead. Only
+ * this group is checked: a Host package's `./client` export is the typed wire
+ * face its browser consumers import, not a plugin the roster serves.
+ * @returns one violation per client package whose `./client` export and
+ * `dsh.client` declaration disagree.
+ */
 function validateClientHalvesDeclared(): string[] {
   return globSync('packages/client/*/package.json', { cwd: root }).flatMap((manifestPath) => {
     const manifest = readManifest(manifestPath) as PackageManifest & {

@@ -110,7 +110,7 @@ describe('the shipped preset root', () => {
     }
   })
 
-  it('configures Codex Apex for native feedback loops with expanded tool context', async () => {
+  it('configures Codex Apex for PTC mode feedback loops with expanded tool context', async () => {
     const source = await readFile(join(SHIPPED_PRESET_ROOT, 'codex-apex', 'agent.cordis.yml'), 'utf8')
     const entries: unknown = yaml.load(source, { schema: entryListSchema })
     if (!Array.isArray(entries)) throw new TypeError('codex-apex preset must contain a Cordis entry list')
@@ -133,5 +133,7 @@ describe('the shipped preset root', () => {
     const personaConfig = persona?.config as Record<string, unknown> | undefined
     expect(personaConfig?.text).toContain('Codex Apex')
     expect(personaConfig?.text).not.toContain('<5,000 tokens')
+    expect(personaConfig?.text).toContain('explicit user confirmation')
+    expect(personaConfig?.text).not.toContain('NEVER confined')
   })
 })

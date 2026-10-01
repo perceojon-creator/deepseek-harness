@@ -28,20 +28,45 @@ function pad(indent: number): string {
   return '  '.repeat(indent)
 }
 
+/** Descriptions at or under this length are rendered verbatim. */
+const CONDENSE_THRESHOLD = 150
+/** A condensed lead sentence must be at least this long to stand on its own. */
+const MIN_LEAD_SENTENCE = 20
+/** A condensed lead sentence longer than this falls back to word-boundary truncation. */
+const MAX_LEAD_SENTENCE = 220
+/** Abbreviations whose trailing period never ends a sentence (compared lowercase, period included). */
+const ABBREVIATIONS = new Set(['e.g.', 'i.e.', 'etc.', 'vs.', 'cf.', 'approx.', 'no.'])
+
 /**
- * Condense an overly verbose tool or parameter description to its direct primary action,
- * preserving clarity while eliminating encyclopedic operational essays from the prompt.
+ * The end index (exclusive) of the first safe sentence in `text`, or `undefined` when none exists.
+ * A boundary is `[.!?]` at parenthesis/bracket depth zero, followed by whitespace and an uppercase
+ * letter, and not closing a known abbreviation — so paths, globs, and `(e.g. …)` asides stay intact.
+ */
+function firstSentenceEnd(text: string): number | undefined {
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '(' || ch === '[') depth++
+    else if ((ch === ')' || ch === ']') && depth > 0) depth--
+    else if (depth === 0 && (ch === '.' || ch === '!' || ch === '?') && /^\s+[A-Z]/.test(text.slice(i + 1, i + 3))) {
+      const word = text.slice(text.lastIndexOf(' ', i) + 1, i + 1).toLowerCase()
+      if (!ABBREVIATIONS.has(word)) return i + 1
+    }
+  }
+  return undefined
+}
+
+/**
+ * Condense an overly verbose tool or parameter description to its lead sentence. Short
+ * descriptions, and long ones with no safe sentence boundary, pass through verbatim; a lead
+ * sentence that is itself overlong is truncated on a word boundary with an ellipsis.
  */
 function condenseProse(text: string): string {
-  if (text.length <= 150) return text
-  // Split on sentence boundary or list bullet
-  const parts = text.split(/(?<=[.?!])\s+|\s*[*•]\s*/)
-  const firstSentence = parts[0]?.trim() || text
-  if (firstSentence.length >= 20 && firstSentence.length <= 220) {
-    return firstSentence.endsWith('.') ? firstSentence : `${firstSentence}.`
-  }
-  const cut = text.slice(0, 160).replace(/\s+\S*$/, '')
-  return `${cut}...`
+  if (text.length <= CONDENSE_THRESHOLD) return text
+  const end = firstSentenceEnd(text)
+  if (end === undefined || end < MIN_LEAD_SENTENCE) return text
+  if (end <= MAX_LEAD_SENTENCE) return text.slice(0, end)
+  return `${text.slice(0, MAX_LEAD_SENTENCE).replace(/\s+\S*$/, '')}...`
 }
 
 /** A one-line JSDoc block for a schema `description`, or no lines when there is none. */

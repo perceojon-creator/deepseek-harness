@@ -48,9 +48,11 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
   Client: MockClient,
 }))
 
-vi.mock('@modelcontextprotocol/sdk/client/stdio.js', () => ({
-  StdioClientTransport: vi.fn(),
-}))
+vi.mock('@modelcontextprotocol/sdk/client/stdio.js', async () => {
+  const { PassThrough } = await import('node:stream')
+  // The real transport exposes its stderr PassThrough before spawn; createTransport drains it.
+  return { StdioClientTransport: vi.fn(function (this: { stderr: unknown }) { this.stderr = new PassThrough() }) }
+})
 
 vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
   StreamableHTTPClientTransport: vi.fn(),
@@ -102,6 +104,7 @@ function stdioConfig(reconnect?: Config['reconnect']): Config {
     cwd: '',
     toolCallTimeoutMs: 60_000,
     failOnStartupError: false,
+    excludeTools: [],
     ...reconnect === undefined ? {} : { reconnect },
   }
 }
