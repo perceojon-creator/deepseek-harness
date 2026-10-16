@@ -8,6 +8,8 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Config } from '@deepseek-ai/dsh-mcp-client'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import type { PassThrough } from 'node:stream'
 
 // ---- Mock MCP SDK ----
 
@@ -45,9 +47,11 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
   Client: MockClient,
 }))
 
-vi.mock('@modelcontextprotocol/sdk/client/stdio.js', () => ({
-  StdioClientTransport: vi.fn(),
-}))
+vi.mock('@modelcontextprotocol/sdk/client/stdio.js', async () => {
+  const { PassThrough } = await import('node:stream')
+  // The real transport exposes its stderr PassThrough before spawn; createTransport drains it.
+  return { StdioClientTransport: vi.fn(function (this: { stderr: unknown }) { this.stderr = new PassThrough() }) }
+})
 
 vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
   StreamableHTTPClientTransport: vi.fn(),
@@ -84,6 +88,7 @@ const stdioConfig: Config = {
   cwd: '',
   toolCallTimeoutMs: 60_000,
   failOnStartupError: false,
+  excludeTools: [],
 }
 
 // ---- Tests ----
@@ -124,6 +129,18 @@ describe('mcp-client plugin module exports', () => {
       command: 'echo',
     } as never)
     expect(resolved.serverName).toBe('github-prod_1')
+  })
+
+  it('Config schema defaults excludeTools to an empty list and keeps explicit entries', () => {
+    const omitted = ConfigSchema({ transport: 'stdio', serverName: 'srv', command: 'echo' } as never)
+    expect(omitted.excludeTools).toEqual([])
+    const explicit = ConfigSchema({
+      transport: 'streamable-http',
+      serverName: 'web',
+      url: 'http://localhost:3000/mcp',
+      excludeTools: ['read_file'],
+    } as never)
+    expect(explicit.excludeTools).toEqual(['read_file'])
   })
 
   it('Config schema materializes reconnect defaults and merges partial overrides', () => {
@@ -170,6 +187,25 @@ describe('apply (plugin lifecycle)', () => {
     })
     mockCallTool.mockResolvedValue({ content: [{ type: 'text', text: 'ok' }] })
     ctx = await mountRegistry()
+  })
+
+  it('never registers tools named in config.excludeTools', async () => {
+    await apply(ctx, { ...stdioConfig, excludeTools: ['remote'] })
+
+    expect(mockListTools).toHaveBeenCalled()
+    expect(ctx.tools.get('mcp__srv__remote')).toBeUndefined()
+  })
+
+  it('forwards stdio child stderr lines to the debug logger', async () => {
+    const debugs: string[] = []
+    ctx.logger.debug = ((message: unknown) => { debugs.push(String(message)) }) as typeof ctx.logger.debug
+    await apply(ctx, stdioConfig)
+
+    const transport = vi.mocked(StdioClientTransport).mock.instances.at(-1) as unknown as { stderr: PassThrough }
+    transport.stderr.end('server booting\nready\n')
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(debugs).toEqual(['mcp-client(srv) stderr: server booting', 'mcp-client(srv) stderr: ready'])
   })
 
   it('connects, syncs tools under the namespace, and registers a notification handler', async () => {
@@ -270,6 +306,7 @@ describe('apply (plugin lifecycle)', () => {
     await expect(apply(ctx, {
       ...stdioConfig,
       failOnStartupError: true,
+      excludeTools: [],
     })).rejects.toMatchObject({
       message: 'mcp-client(srv): initial connection or tool synchronization failed',
       cause,
@@ -296,6 +333,7 @@ describe('apply (plugin lifecycle)', () => {
     await expect(apply(ctx, {
       ...stdioConfig,
       failOnStartupError: true,
+      excludeTools: [],
     })).rejects.toThrow('initial connection or tool synchronization failed')
 
     expect(ctx.tools.get('mcp__srv__remote')).toBeDefined()
@@ -322,6 +360,7 @@ describe('apply (plugin lifecycle)', () => {
     await expect(apply(ctx, {
       ...stdioConfig,
       failOnStartupError: true,
+      excludeTools: [],
     })).rejects.toThrow('initial connection or tool synchronization failed')
 
     expect(mockListTools).toHaveBeenCalledTimes(2)
@@ -404,6 +443,7 @@ describe('apply (plugin lifecycle)', () => {
       headers: { Authorization: 'Bearer x' },
       toolCallTimeoutMs: 30_000,
       failOnStartupError: false,
+      excludeTools: [],
     }
 
     await apply(ctx, httpConfig)

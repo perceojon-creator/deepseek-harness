@@ -112,6 +112,8 @@ flowchart LR
   cfg --> plugin_dsh_base_goal
   plugin_dsh_base_goal_round_driver["goal-round-driver<br/>@deepseek-ai/dsh-goal-round-driver"]
   cfg --> plugin_dsh_base_goal_round_driver
+  plugin_dsh_base_goal_supervisor["goal-supervisor<br/>@deepseek-ai/dsh-goal-supervisor"]
+  cfg --> plugin_dsh_base_goal_supervisor
   plugin_dsh_base_command_goal["command-goal<br/>@deepseek-ai/dsh-command-goal"]
   cfg --> plugin_dsh_base_command_goal
   plugin_dsh_base_plan_mode["plan-mode<br/>@deepseek-ai/dsh-plan-mode"]
@@ -236,6 +238,7 @@ flowchart LR
 | `command-feedback` | `@deepseek-ai/dsh-command-feedback` |
 | `goal` | `@deepseek-ai/dsh-goal` |
 | `goal-round-driver` | `@deepseek-ai/dsh-goal-round-driver` |
+| `goal-supervisor` | `@deepseek-ai/dsh-goal-supervisor` |
 | `command-goal` | `@deepseek-ai/dsh-command-goal` |
 | `plan-mode` | `@deepseek-ai/dsh-plan-mode` |
 | `token-meter` | `@deepseek-ai/dsh-token-meter` |

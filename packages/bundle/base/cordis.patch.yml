@@ -301,6 +301,9 @@
     - id: goal-round-driver
       name: '@deepseek-ai/dsh-goal-round-driver'
 
+    - id: goal-supervisor
+      name: '@deepseek-ai/dsh-goal-supervisor'
+
     - id: command-goal
       name: '@deepseek-ai/dsh-command-goal'
 

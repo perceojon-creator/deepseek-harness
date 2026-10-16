@@ -129,6 +129,76 @@ describe('renderToolsSdk', () => {
     output: { type: 'array', items: { type: 'string' } },
   }
 
+  /** Render one tool whose single `p` parameter carries `description`, returning the generated SDK text. */
+  function renderParamDoc(description: string): string {
+    return renderToolsSdk([
+      {
+        name: 'probe',
+        description: 'Probe.',
+        parameters: { type: 'object', properties: { p: { type: 'string', description } } },
+        output: { type: 'string' },
+      },
+    ])
+  }
+  const filler = 'Additional operational detail follows here. '.repeat(6)
+
+  it('condenses long tool and parameter descriptions to their lead sentence', () => {
+    const verbose: ToolSdkSchema = {
+      name: 'verbose',
+      description: `Run one shell operation now. ${filler}`,
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: `Absolute file path to read. ${filler}` },
+        },
+      },
+      output: { type: 'string' },
+    }
+
+    const rendered = renderToolsSdk([verbose])
+
+    expect(rendered).toContain('/** Run one shell operation now. */')
+    expect(rendered).toContain('/** Absolute file path to read. */')
+    expect(rendered).not.toContain('Additional operational detail')
+  })
+
+  it('keeps descriptions at or under the threshold verbatim', () => {
+    expect(renderParamDoc('Short. Two sentences.')).toContain('/** Short. Two sentences. */')
+  })
+
+  it('never cuts after an abbreviation or treats `*` in a glob as a boundary', () => {
+    const glob = `Glob pattern to match, e.g. **/*.ts or src/*.js. ${filler}`
+    expect(renderParamDoc(glob)).toContain(String.raw`/** Glob pattern to match, e.g. **\/*.ts or src/*.js. */`)
+    const abbrevs = `Compare inputs, i.e. Left vs. Right, etc. Then report. ${filler}`
+    expect(renderParamDoc(abbrevs)).toContain('/** Compare inputs, i.e. Left vs. Right, etc. Then report. */')
+  })
+
+  it('never cuts inside parentheses or brackets', () => {
+    const paren = `Absolute path (e.g. C:/x. Or /home/y). More details follow. ${filler}`
+    expect(renderParamDoc(paren)).toContain('/** Absolute path (e.g. C:/x. Or /home/y). */')
+    const bracket = `Pick a mode [one. Two]. Then continue. ${filler}`
+    expect(renderParamDoc(bracket)).toContain('/** Pick a mode [one. Two]. */')
+  })
+
+  it('only cuts where whitespace and an uppercase letter follow the terminator', () => {
+    const lower = `Version 1.2.3 is used. then more lowercase prose! And then the rest. ${filler}`
+    expect(renderParamDoc(lower)).toContain('/** Version 1.2.3 is used. then more lowercase prose! */')
+  })
+
+  it('keeps the full text when the lead sentence is too short or no boundary exists', () => {
+    const tiny = `Path. ${filler}`
+    expect(renderParamDoc(tiny)).toContain(`/** ${tiny.trim()} */`)
+    const noBoundary = 'word '.repeat(40).trim()
+    expect(renderParamDoc(noBoundary)).toContain(`/** ${noBoundary} */`)
+  })
+
+  it('truncates an overlong lead sentence on a word boundary', () => {
+    const long = `${'lengthy '.repeat(40)}end. Next sentence here. ${filler}`
+    const rendered = renderParamDoc(long)
+    expect(rendered).toMatch(/\/\*\* (lengthy )+lengthy\.\.\. \*\//)
+    expect(rendered).not.toContain('Next sentence')
+  })
+
   it('declares every tool in lexicographic order with quoted keys for exotic names', () => {
     const text = renderToolsSdk([exotic, bash])
     expect(text).toContain('interface ToolArgsMap {')

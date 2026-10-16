@@ -413,6 +413,42 @@ Source: [`packages/feedback/command-feedback/src/index.ts:62`](../packages/feedb
 
 Source: [`packages/goal/goal/src/domain.ts:66`](../packages/goal/goal/src/domain.ts)
 
+### `goal-supervisor/*`
+
+<a id="goal-supervisorllm-request--log-only"></a>
+
+#### `goal-supervisor/llm-request` — log-only
+
+```ts persistence-catalog
+/** Records the complete prompt and options sent to the supervisor LLM. */
+'goal-supervisor/llm-request': {
+  kind: 'evaluation' | 'consolidation'
+  provider: string
+  model: string
+  system: string
+  userText: string
+  temperature: 0
+  maxTokens: number
+}
+```
+
+Source: [`packages/goal/goal-supervisor/src/session-events.ts:6`](../packages/goal/goal-supervisor/src/session-events.ts)
+
+<a id="goal-supervisorllm-result--log-only"></a>
+
+#### `goal-supervisor/llm-result` — log-only
+
+```ts persistence-catalog
+/** Records the raw response or failure for one logged supervisor request. */
+'goal-supervisor/llm-result': {
+  requestSeq: number
+  status: 'complete' | 'failed'
+  response?: string
+}
+```
+
+Source: [`packages/goal/goal-supervisor/src/session-events.ts:16`](../packages/goal/goal-supervisor/src/session-events.ts)
+
 ### `hook/*`
 
 <a id="hookinvoked--log-only"></a>

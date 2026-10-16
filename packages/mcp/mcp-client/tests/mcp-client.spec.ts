@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import type { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import type { PassThrough } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
 import AttachmentStore, { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentLimits, ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } from '@deepseek-ai/dsh-attachment'
@@ -201,6 +203,33 @@ describe('syncTools', () => {
     // Raw names are NOT registered.
     expect(ctx.tools.get('greet')).toBeUndefined()
     expect(ctx.tools.get('add')).toBeUndefined()
+  })
+
+  it('skips raw tool names listed in excludeTools and registers the rest', async () => {
+    const client = createMockClient([
+      { name: 'read_file', inputSchema: { type: 'object' } },
+      { name: 'delete_folder', inputSchema: { type: 'object' } },
+      { name: 'custom_strategy', inputSchema: { type: 'object' } },
+    ])
+
+    const disposers = await syncTools(
+      client as never,
+      ctx,
+      { ...defaultOpts, excludeTools: new Set(['read_file', 'delete_folder', 'not_listed']) },
+      new Map(),
+    )
+
+    expect([...disposers.keys()]).toEqual(['mcp__srv__custom_strategy'])
+    expect(ctx.tools.get('mcp__srv__read_file')).toBeUndefined()
+    expect(ctx.tools.get('mcp__srv__delete_folder')).toBeUndefined()
+  })
+
+  it('registers every listed tool when excludeTools is omitted, whatever the server name', async () => {
+    const client = createMockClient([{ name: 'read_file', inputSchema: { type: 'object' } }])
+
+    const disposers = await syncTools(client as never, ctx, { ...defaultOpts, serverName: 'terminal' }, new Map())
+
+    expect([...disposers.keys()]).toEqual(['mcp__terminal__read_file'])
   })
 
   it('lets two servers publish the same raw name side by side', async () => {
@@ -1128,11 +1157,30 @@ describe('createTransport', () => {
       cwd: '/tmp',
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
+      excludeTools: [],
     }
-    const transport = createTransport(config)
+    const transport = createTransport(config, () => {})
     expect(transport).toBeDefined()
     expect(transport).toHaveProperty('start')
     expect(transport).toHaveProperty('close')
+  })
+
+  it('drains stdio stderr line by line into the callback', async () => {
+    const lines: string[] = []
+    const transport = createTransport({
+      transport: 'stdio',
+      serverName: 'srv',
+      command: 'node',
+      args: [],
+      env: {},
+      cwd: '',
+      toolCallTimeoutMs: 60_000,
+      failOnStartupError: false,
+      excludeTools: [],
+    }, line => lines.push(line)) as StdioClientTransport
+    ;(transport.stderr as PassThrough).end('first\r\nsecond\n')
+    await new Promise(resolve => setImmediate(resolve))
+    expect(lines).toEqual(['first', 'second'])
   })
 
   it('creates StreamableHTTPClientTransport for http config without headers', () => {
@@ -1143,8 +1191,9 @@ describe('createTransport', () => {
       headers: {},
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
+      excludeTools: [],
     }
-    const transport = createTransport(config)
+    const transport = createTransport(config, () => {})
     expect(transport).toBeDefined()
     expect(transport).toHaveProperty('start')
     expect(transport).toHaveProperty('close')
@@ -1158,8 +1207,9 @@ describe('createTransport', () => {
       headers: { Authorization: 'Bearer token' },
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
+      excludeTools: [],
     }
-    const transport = createTransport(config)
+    const transport = createTransport(config, () => {})
     expect(transport).toBeDefined()
     expect(transport).toHaveProperty('start')
     expect(transport).toHaveProperty('close')
@@ -1182,10 +1232,11 @@ describe('createTransport', () => {
         cwd: '',
         toolCallTimeoutMs: 60_000,
         failOnStartupError: false,
+        excludeTools: [],
       }
       // StdioClientTransport keeps its env private; the observable contract is
       // that createTransport(config) returns a transport without throwing.
-      const transport = createTransport(config)
+      const transport = createTransport(config, () => {})
       expect(transport).toBeDefined()
     } finally {
       delete process.env.SAFE_VAR
@@ -1208,8 +1259,9 @@ describe('createTransport', () => {
       cwd: '',
       toolCallTimeoutMs: 60_000,
       failOnStartupError: false,
+      excludeTools: [],
     }
-    const transport = createTransport(config)
+    const transport = createTransport(config, () => {})
     expect(transport).toBeDefined()
   })
 })

@@ -789,6 +789,34 @@ export interface Config {
 
 Source: [`packages/goal/goal/src/index.ts:116`](../packages/goal/goal/src/index.ts)
 
+<a id="deepseek-aidsh-goal-supervisor"></a>
+
+## `@deepseek-ai/dsh-goal-supervisor`
+
+Requires: `agents` · `goals` · `llm` · `systemPrompt` · `tools`
+
+```ts config-catalog
+/** Configuration options for the metacognitive goal supervisor. */
+export interface Config {
+  /** Optional provider override for the supervisory LLM. */
+  supervisorProvider?: string
+  /** Optional model override for the supervisory LLM. */
+  supervisorModel?: string
+  /** Number of goal rounds between episodic consolidation summaries. */
+  consolidationInterval: number
+  /** Maximum characters of session activity sent to each supervisor request. */
+  sessionSummaryMaxChars: number
+  /** Milliseconds one supervisor or consolidation model request may run before it is aborted. */
+  supervisorTimeoutMs: number
+  /** Maximum supervisor steers in one turn of one goal revision before the turn is allowed to end. */
+  maxConsecutiveRedirects: number
+  /** Tool names whose calls count as code changes that require verification before the turn ends. */
+  codeChangeTools: string[]
+}
+```
+
+Source: [`packages/goal/goal-supervisor/src/index.ts:42`](../packages/goal/goal-supervisor/src/index.ts)
+
 <a id="deepseek-aidsh-headless"></a>
 
 ## `@deepseek-ai/dsh-headless`
@@ -1468,6 +1496,8 @@ export interface StdioConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Raw server tool names never registered (e.g. ones duplicating native harness tools). */
+  excludeTools: string[]
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
   reconnect?: ReconnectConfig
 }
@@ -1490,6 +1520,8 @@ export interface StreamableHttpConfig {
   toolCallTimeoutMs: number
   /** Fail plugin activation when the initial connection or tool synchronization fails. */
   failOnStartupError: boolean
+  /** Raw server tool names never registered (e.g. ones duplicating native harness tools). */
+  excludeTools: string[]
   /** Automatic reconnect policy after a lost connection; omission uses the defaults. */
   reconnect?: ReconnectConfig
 }
@@ -1507,7 +1539,7 @@ export interface ReconnectConfig {
 }
 ```
 
-Source: [`packages/mcp/mcp-client/src/index.ts:98`](../packages/mcp/mcp-client/src/index.ts)
+Source: [`packages/mcp/mcp-client/src/index.ts:102`](../packages/mcp/mcp-client/src/index.ts)
 
 <a id="deepseek-aidsh-message-feedback"></a>
 
